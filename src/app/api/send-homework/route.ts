@@ -5,19 +5,17 @@ const { MessagingApiClient } = messagingApi;
 
 const THAI_MONTHS = ["ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.","มิ.ย.","ก.ค.","ส.ค.","ก.ย.","ต.ค.","พ.ย.","ธ.ค."];
 const THAI_DAYS = ["อาทิตย์","จันทร์","อังคาร","พุธ","พฤหัสบดี","ศุกร์","เสาร์"];
-
-function formatDueShort(s: string) {
-  const d = new Date(s);
-  return `${d.getDate()} ${THAI_MONTHS[d.getMonth()]}`;
-}
+const BADGE_COLORS = ["#ff7043","#4DB6AC","#7E57C2","#42A5F5","#66BB6A","#FFA726","#EC407A","#26C6DA"];
 
 function formatDueLabel(s: string) {
   const now = new Date();
   const due = new Date(s);
-  const diffDays = Math.ceil((due.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-  if (diffDays <= 0) return "วันนี้!";
-  if (diffDays === 1) return "พรุ่งนี้";
-  return `${due.getDate()} ${THAI_MONTHS[due.getMonth()]}`;
+  const diffMs = due.getTime() - now.getTime();
+  const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+  const time = `${String(due.getHours()).padStart(2,'0')}:${String(due.getMinutes()).padStart(2,'0')} น.`;
+  if (diffDays <= 0) return `วันนี้ ${time}`;
+  if (diffDays === 1) return `พรุ่งนี้ ${time}`;
+  return `${due.getDate()} ${THAI_MONTHS[due.getMonth()]} ${time}`;
 }
 
 export async function POST(req: NextRequest) {
@@ -32,79 +30,140 @@ export async function POST(req: NextRequest) {
     const liffUrl = `https://liff.line.me/${process.env.NEXT_PUBLIC_LIFF_ID}`;
 
     if (type === 'daily' && Array.isArray(homework)) {
-      // ===== Daily Report Flex =====
+      // ===== Daily Report Flex (warm theme) =====
       const now = new Date();
-      const dateStr = `🗓️ วัน${THAI_DAYS[now.getDay()]}ที่ ${now.getDate()} ${THAI_MONTHS[now.getMonth()]} ${now.getFullYear() + 543}`;
+      const dateStr = `วัน${THAI_DAYS[now.getDay()]}ที่ ${now.getDate()} ${THAI_MONTHS[now.getMonth()]} ${now.getFullYear() + 543}`;
 
-      const hwItems: any[] = [];
-      homework.slice(0, 8).forEach((hw: any, i: number) => {
-        if (i > 0) hwItems.push({ type: 'separator', margin: 'md', color: '#EEEEEE' });
-        hwItems.push({
+      const hwCards: any[] = [];
+      homework.slice(0, 6).forEach((hw: any, i: number) => {
+        const num = String(i + 1).padStart(2, '0');
+        const color = BADGE_COLORS[i % BADGE_COLORS.length];
+
+        hwCards.push({
           type: 'box', layout: 'vertical', margin: 'md',
+          backgroundColor: '#FFFFFF', paddingAll: '15px', cornerRadius: '12px', paddingBottom: '15px',
           contents: [
-            { type: 'box', layout: 'horizontal', contents: [
-              { type: 'text', text: `${i + 1}. ${hw.subject}`, weight: 'bold', color: '#495ca4', size: 'md', flex: 1 },
-              ...(hw.due_date ? [{ type: 'text' as const, text: `⏰ ส่ง: ${formatDueLabel(hw.due_date)}`, size: 'xs' as const, color: '#E74C3C', align: 'end' as const, gravity: 'center' as const, flex: 1 }] : []),
-            ]},
-            { type: 'text', text: `หัวข้อ: ${hw.title}`, size: 'sm', color: '#34495E', margin: 'sm', weight: 'bold' },
-            ...(hw.description ? [{ type: 'text' as const, text: hw.description.length > 100 ? hw.description.substring(0, 100) + '...' : hw.description, size: 'sm' as const, color: '#7F8C8D', wrap: true, margin: 'xs' as const }] : []),
+            {
+              type: 'box', layout: 'horizontal', alignItems: 'center',
+              contents: [
+                {
+                  type: 'box', layout: 'vertical', backgroundColor: color,
+                  width: '30px', height: '30px', justifyContent: 'center', cornerRadius: '8px',
+                  contents: [{ type: 'text', text: num, weight: 'bold', color: '#FFFFFF', size: 'md', align: 'center' }],
+                },
+                { type: 'text', text: hw.subject || 'ไม่ระบุวิชา', weight: 'bold', color: '#5e4034', size: 'md', margin: 'md', gravity: 'center', flex: 1 },
+              ],
+            },
+            { type: 'text', text: `หัวข้อ: ${hw.title}`, weight: 'bold', size: 'sm', color: '#333333', margin: 'md' },
+            ...(hw.description ? [{
+              type: 'text' as const, text: `Details: ${hw.description.length > 80 ? hw.description.substring(0, 80) + '...' : hw.description}`,
+              size: 'xxs' as const, color: '#8c7b75', wrap: true, margin: 'xs' as const,
+            }] : []),
           ],
         });
       });
 
       const flexMsg = {
         type: 'flex' as const,
-        altText: `📋 รายงานการบ้านประจำวัน (${homework.length} รายการ)`,
+        altText: `📋 การบ้านวันนี้ (${homework.length} รายการ)`,
         contents: {
           type: 'bubble', size: 'mega',
           header: {
-            type: 'box', layout: 'vertical', backgroundColor: '#495ca4', paddingAll: '5px',
-            contents: [{ type: 'text', text: 'HOMEWORK TODAY', weight: 'bold', color: '#FFFFFF', size: 'lg', align: 'center' }],
-          },
-          body: {
-            type: 'box', layout: 'vertical', paddingAll: '20px',
+            type: 'box', layout: 'horizontal', backgroundColor: '#ffecb3', paddingAll: '20px', paddingTop: '25px',
             contents: [
-              { type: 'box', layout: 'horizontal', contents: [
-                { type: 'text', text: dateStr, size: 'sm', color: '#555551', weight: 'bold', flex: 1 },
-                { type: 'text', text: `Total: ${homework.length} งาน`, size: 'sm', color: '#E74C3C', align: 'end', weight: 'bold' },
-              ]},
-              { type: 'separator', margin: 'md', color: '#DDDDDD' },
-              ...hwItems,
+              {
+                type: 'box', layout: 'vertical', flex: 1, justifyContent: 'center',
+                contents: [
+                  { type: 'text', text: 'HomeWork Today', weight: 'bold', color: '#5e4034', size: 'lg' },
+                  { type: 'text', text: dateStr, weight: 'bold', color: '#666666', size: 'xs', margin: 'sm' },
+                ],
+              },
+              {
+                type: 'image', url: 'https://cdn-icons-png.flaticon.com/512/9042/9042241.png',
+                size: '60px', aspectMode: 'fit', position: 'absolute', offsetEnd: '10px', offsetTop: '20px',
+              },
             ],
           },
-          footer: {
-            type: 'box', layout: 'vertical',
-            contents: [{ type: 'button', action: { type: 'uri', label: 'ดูการบ้านทั้งหมด', uri: `${liffUrl}/homework-list` } }],
+          body: {
+            type: 'box', layout: 'vertical', backgroundColor: '#FFF9F0', paddingAll: '10px',
+            contents: hwCards,
           },
-          styles: { footer: { separator: true } },
+          footer: {
+            type: 'box', layout: 'vertical', backgroundColor: '#FFF9F0', paddingAll: '15px',
+            contents: [{
+              type: 'button', style: 'primary', color: '#ffb74d', height: 'sm',
+              action: { type: 'uri', label: 'ดูการบ้านทั้งหมด', uri: `${liffUrl}/homework-list` },
+            }],
+          },
         },
       };
 
       await client.pushMessage({ to: targetId, messages: [flexMsg as any] });
+
     } else if (homework) {
       // ===== Single Homework Flex =====
-      const dueText = homework.due_date
-        ? `กำหนดส่ง: ${formatDueShort(homework.due_date)}`
-        : 'ไม่ระบุกำหนดส่ง';
+      const dueLabel = homework.due_date ? formatDueLabel(homework.due_date) : 'ไม่ระบุ';
+
+      const bodyContents: any[] = [
+        { type: 'text', text: `หัวข้อ: ${homework.title}`, weight: 'bold', size: 'md', color: '#333333' },
+        { type: 'separator', margin: 'md', color: '#eeeeee' },
+      ];
+
+      if (homework.description) {
+        bodyContents.push(
+          { type: 'text', text: 'รายละเอียด:', size: 'xs', color: '#8c7b75', margin: 'md' },
+          { type: 'text', text: homework.description.length > 200 ? homework.description.substring(0, 200) + '...' : homework.description, size: 'sm', color: '#5e4034', wrap: true, margin: 'xs' },
+        );
+      }
+
+      bodyContents.push({
+        type: 'box', layout: 'horizontal', margin: 'xl', backgroundColor: '#fff4f4', paddingAll: '10px', cornerRadius: '8px',
+        contents: [
+          { type: 'text', text: '⏰ กำหนดส่ง:', size: 'sm', color: '#8c7b75', flex: 0, gravity: 'center' },
+          { type: 'text', text: ` ${dueLabel}`, size: 'md', color: '#d32f2f', weight: 'bold', margin: 'sm', flex: 1, gravity: 'center' },
+        ],
+      });
 
       const flexMsg = {
         type: 'flex' as const,
-        altText: `📋 การบ้าน: ${homework.title}`,
+        altText: `📋 การบ้าน: ${homework.subject} - ${homework.title}`,
         contents: {
-          type: 'bubble',
-          body: {
-            type: 'box', layout: 'vertical', paddingAll: '20px',
+          type: 'bubble', size: 'mega',
+          header: {
+            type: 'box', layout: 'horizontal', backgroundColor: '#ffecb3', paddingAll: '20px', paddingTop: '25px',
             contents: [
-              { type: 'text', text: `${homework.subject}: ${homework.title}`, weight: 'bold', size: 'md', wrap: true },
-              { type: 'text', text: dueText, size: 'xs', color: '#666666', margin: 'sm' },
-              ...(homework.description ? [{ type: 'text' as const, text: homework.description.length > 200 ? homework.description.substring(0, 200) + '...' : homework.description, size: 'sm' as const, color: '#7F8C8D', wrap: true, margin: 'md' as const }] : []),
-              { type: 'button', action: { type: 'uri', label: 'ดูการบ้าน', uri: `${liffUrl}/homework-list` }, color: '#495ca4', margin: 'lg', height: 'sm', style: 'primary' },
+              {
+                type: 'box', layout: 'vertical', flex: 1, justifyContent: 'center',
+                contents: [
+                  { type: 'text', text: 'การบ้านใหม่', weight: 'bold', color: '#5e4034', size: 'xl' },
+                  { type: 'text', text: `วิชา: ${homework.subject || 'ไม่ระบุ'}`, weight: 'bold', color: '#ff7043', size: 'md', margin: 'sm' },
+                ],
+              },
+              {
+                type: 'image', url: 'https://cdn-icons-png.flaticon.com/512/891/891446.png',
+                size: '70px', aspectMode: 'fit', position: 'absolute', offsetEnd: '0px', offsetTop: '0px',
+              },
             ],
+          },
+          body: {
+            type: 'box', layout: 'vertical', backgroundColor: '#FFF9F0', paddingAll: '15px',
+            contents: [{
+              type: 'box', layout: 'vertical', backgroundColor: '#FFFFFF', paddingAll: '20px', cornerRadius: '12px',
+              contents: bodyContents,
+            }],
+          },
+          footer: {
+            type: 'box', layout: 'horizontal', backgroundColor: '#FFF9F0', paddingAll: '15px', paddingTop: '0px',
+            contents: [{
+              type: 'button', style: 'secondary', height: 'sm', margin: 'sm', flex: 1,
+              action: { type: 'uri', label: 'ดูการบ้าน', uri: `${liffUrl}/homework-list` },
+            }],
           },
         },
       };
 
       await client.pushMessage({ to: targetId, messages: [flexMsg as any] });
+
     } else {
       return NextResponse.json({ error: 'Missing homework data' }, { status: 400 });
     }
