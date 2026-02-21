@@ -57,39 +57,57 @@ CREATE TABLE IF NOT EXISTS public.user_homeworks (
   UNIQUE(user_id, homework_id)
 );
 
--- ===== DISABLE RLS FOR DEVELOPMENT =====
+-- Announcement reads tracking table
+CREATE TABLE IF NOT EXISTS public.announcement_reads (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  announcement_id UUID NOT NULL REFERENCES public.announcements(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+  read_at TIMESTAMPTZ DEFAULT now(),
+  UNIQUE(announcement_id, user_id)
+);
+
+-- ===== FIX OLD SCHEMA (safe to run if columns already exist) =====
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'announcements' AND column_name = 'created_by') THEN
+    ALTER TABLE public.announcements ADD COLUMN created_by UUID REFERENCES public.users(id) ON DELETE CASCADE;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'announcements' AND column_name = 'pinned') THEN
+    ALTER TABLE public.announcements ADD COLUMN pinned BOOLEAN DEFAULT false;
+  END IF;
+END $$;
+
+-- ===== ENABLE RLS FOR DEVELOPMENT =====
 ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.groups ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.user_settings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.announcements ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.homeworks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.user_homeworks ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.announcement_reads ENABLE ROW LEVEL SECURITY;
 
 -- Allow all access for anon key (development only)
 DO $$
 BEGIN
-  -- users
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'users' AND policyname = 'Allow all for anon') THEN
     CREATE POLICY "Allow all for anon" ON public.users FOR ALL USING (true) WITH CHECK (true);
   END IF;
-  -- groups
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'groups' AND policyname = 'Allow all for anon') THEN
     CREATE POLICY "Allow all for anon" ON public.groups FOR ALL USING (true) WITH CHECK (true);
   END IF;
-  -- user_settings
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'user_settings' AND policyname = 'Allow all for anon') THEN
     CREATE POLICY "Allow all for anon" ON public.user_settings FOR ALL USING (true) WITH CHECK (true);
   END IF;
-  -- announcements
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'announcements' AND policyname = 'Allow all for anon') THEN
     CREATE POLICY "Allow all for anon" ON public.announcements FOR ALL USING (true) WITH CHECK (true);
   END IF;
-  -- homeworks
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'homeworks' AND policyname = 'Allow all for anon') THEN
     CREATE POLICY "Allow all for anon" ON public.homeworks FOR ALL USING (true) WITH CHECK (true);
   END IF;
-  -- user_homeworks
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'user_homeworks' AND policyname = 'Allow all for anon') THEN
     CREATE POLICY "Allow all for anon" ON public.user_homeworks FOR ALL USING (true) WITH CHECK (true);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'announcement_reads' AND policyname = 'Allow all for anon') THEN
+    CREATE POLICY "Allow all for anon" ON public.announcement_reads FOR ALL USING (true) WITH CHECK (true);
   END IF;
 END $$;
