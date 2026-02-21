@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useLiff } from "@/lib/liff-provider";
 import { supabase } from "@/lib/supabase";
+import { ClipboardList, Plus, Clock, CheckCircle2 } from "lucide-react";
 
 type Homework = {
   id: string;
@@ -22,12 +23,9 @@ const THAI_MONTHS = [
   "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม",
   "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม",
 ];
-
 const THAI_DAYS = ["อาทิตย์", "จันทร์", "อังคาร", "พุธ", "พฤหัสบดี", "ศุกร์", "เสาร์"];
 
-function toBuddhistYear(year: number) {
-  return year + 543;
-}
+function toBuddhistYear(y: number) { return y + 543; }
 
 function formatThaiMonthYear(dateStr: string) {
   const d = new Date(dateStr);
@@ -45,43 +43,29 @@ export default function HomeworkListPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (isReady && userId) {
-      fetchHomeworks();
-    }
+    if (isReady && userId) fetchHomeworks();
   }, [isReady, userId]);
 
   const fetchHomeworks = async () => {
     try {
       setLoading(true);
       const { data: userData } = await supabase
-        .from("users")
-        .select("id")
-        .eq("line_user_id", userId as string)
-        .single();
-
+        .from("users").select("id").eq("line_user_id", userId as string).single();
       if (!userData) return;
 
       const { data, error } = await supabase
         .from("homeworks")
         .select(`id, subject, title, due_date, created_at, user_homeworks ( status )`)
         .order("due_date", { ascending: false });
-
       if (error) throw error;
 
-      const formattedData = data?.map((hw) => ({
-        ...hw,
-        user_homeworks: hw.user_homeworks || [],
-      })) as Homework[];
-
-      setHomeworks(formattedData);
-    } catch (error) {
-      console.error("Error fetching homeworks:", error);
-    } finally {
-      setLoading(false);
-    }
+      setHomeworks(
+        (data || []).map((hw) => ({ ...hw, user_homeworks: hw.user_homeworks || [] })) as Homework[]
+      );
+    } catch (e) { console.error(e); }
+    finally { setLoading(false); }
   };
 
-  // Group homeworks by month/year
   const grouped: GroupedHomework = {};
   homeworks.forEach((hw) => {
     const key = hw.due_date ? formatThaiMonthYear(hw.due_date) : "ไม่มีกำหนดส่ง";
@@ -89,162 +73,69 @@ export default function HomeworkListPage() {
     grouped[key].push(hw);
   });
 
-  const handleCreateHomework = () => {
-    window.location.href = "/add-homework";
-  };
-
-  if (liffError) return <div className="p-4 text-red-500">Error: {liffError}</div>;
-  if (!isReady) return <div className="p-4 text-center">Loading...</div>;
+  if (liffError) return <div style={{ padding: 16, color: "#E53935" }}>Error: {liffError}</div>;
+  if (!isReady) return <div style={{ padding: 16, textAlign: "center", color: "#94A3B8" }}>Loading...</div>;
 
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        background: "linear-gradient(180deg, #FFF8E1 0%, #FFFDF5 100%)",
-        fontFamily: "'Inter', 'Noto Sans Thai', sans-serif",
-        paddingBottom: "80px",
-      }}
-    >
+    <div style={{ minHeight: "100vh", background: "#F0F4FA", fontFamily: "'Inter','Noto Sans Thai',sans-serif", paddingBottom: 80 }}>
       {/* Header */}
-      <div
-        style={{
-          background: "linear-gradient(135deg, #FFB300 0%, #FFA000 100%)",
-          padding: "16px 20px",
-          textAlign: "center",
-          color: "#fff",
-          fontWeight: 700,
-          fontSize: "17px",
-          letterSpacing: "0.3px",
-          boxShadow: "0 2px 8px rgba(255,160,0,0.3)",
-        }}
-      >
-        📋 การบ้านทั้งหมด
+      <div style={{ background: "#2563EB", padding: "16px 20px", display: "flex", alignItems: "center", gap: 10 }}>
+        <ClipboardList size={20} color="#fff" />
+        <span style={{ color: "#fff", fontWeight: 700, fontSize: 17 }}>การบ้านทั้งหมด</span>
       </div>
 
       {/* Content */}
       <div style={{ padding: "16px 16px 0" }}>
         {loading ? (
-          <div style={{ textAlign: "center", padding: "60px 0", color: "#999" }}>
-            กำลังโหลดข้อมูล...
-          </div>
+          <div style={{ textAlign: "center", padding: "60px 0", color: "#94A3B8" }}>กำลังโหลดข้อมูล...</div>
         ) : homeworks.length === 0 ? (
-          <div
-            style={{
-              textAlign: "center",
-              padding: "60px 20px",
-              color: "#999",
-              background: "#fff",
-              borderRadius: "16px",
-              boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
-            }}
-          >
-            <div style={{ fontSize: "40px", marginBottom: "12px" }}>🎉</div>
-            <div style={{ fontWeight: 600, color: "#666" }}>ไม่มีการบ้านค้างส่ง</div>
-            <div style={{ fontSize: "13px", marginTop: "4px" }}>สบายใจได้เลย!</div>
+          <div style={{ textAlign: "center", padding: "60px 20px", color: "#94A3B8", background: "#fff", borderRadius: 14, border: "1px solid #E2E8F0" }}>
+            <CheckCircle2 size={40} color="#93C5FD" style={{ marginBottom: 12 }} />
+            <div style={{ fontWeight: 600, color: "#64748B" }}>ไม่มีการบ้านค้างส่ง</div>
+            <div style={{ fontSize: 13, marginTop: 4 }}>สบายใจได้เลย!</div>
           </div>
         ) : (
           Object.entries(grouped).map(([monthYear, items]) => (
-            <div key={monthYear} style={{ marginBottom: "24px" }}>
-              {/* Month Header */}
-              <h2
-                style={{
-                  fontSize: "18px",
-                  fontWeight: 700,
-                  color: "#333",
-                  marginBottom: "12px",
-                  paddingLeft: "4px",
-                }}
-              >
-                {monthYear}
-              </h2>
-
-              {/* Homework Cards */}
-              <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+            <div key={monthYear} style={{ marginBottom: 24 }}>
+              <h2 style={{ fontSize: 16, fontWeight: 700, color: "#1E293B", marginBottom: 12, paddingLeft: 4 }}>{monthYear}</h2>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                 {items.map((hw) => {
                   const dueDate = hw.due_date ? new Date(hw.due_date) : null;
                   const dayName = dueDate ? THAI_DAYS[dueDate.getDay()] : "";
                   const dateNum = dueDate ? dueDate.getDate() : "";
-                  const doneCount = hw.user_homeworks.filter((uh) => uh.status === "done").length;
+                  const doneCount = hw.user_homeworks.filter((u) => u.status === "done").length;
                   const totalCount = hw.user_homeworks.length || 1;
                   const progress = totalCount > 0 ? (doneCount / totalCount) * 100 : 0;
                   const isAllDone = doneCount === totalCount && totalCount > 0;
 
                   return (
-                    <div
-                      key={hw.id}
-                      style={{
-                        display: "flex",
-                        background: "#fff",
-                        borderRadius: "14px",
-                        overflow: "hidden",
-                        boxShadow: "0 1px 6px rgba(0,0,0,0.06)",
-                        border: "1px solid #f0e8d0",
-                      }}
-                    >
-                      {/* Left: Day + Date */}
-                      <div
-                        style={{
-                          display: "flex",
-                          flexDirection: "column",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          padding: "16px 14px",
-                          minWidth: "70px",
-                          borderRight: "1px solid #f0e8d0",
-                          color: "#888",
-                        }}
-                      >
-                        <span style={{ fontSize: "12px", fontWeight: 500 }}>{dayName}</span>
-                        <span style={{ fontSize: "28px", fontWeight: 700, color: "#333", lineHeight: 1.2 }}>
-                          {dateNum}
-                        </span>
+                    <div key={hw.id} style={{ display: "flex", background: "#fff", borderRadius: 12, overflow: "hidden", border: "1px solid #E2E8F0" }}>
+                      {/* Left date */}
+                      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "14px 12px", minWidth: 64, borderRight: "1px solid #E2E8F0", color: "#94A3B8" }}>
+                        <span style={{ fontSize: 11, fontWeight: 500 }}>{dayName}</span>
+                        <span style={{ fontSize: 26, fontWeight: 700, color: "#1E293B", lineHeight: 1.2 }}>{dateNum}</span>
                       </div>
-
-                      {/* Right: Details */}
-                      <div style={{ flex: 1, padding: "14px 16px" }}>
-                        <div style={{ fontWeight: 700, fontSize: "15px", color: "#222", marginBottom: "4px" }}>
-                          {hw.title}
-                        </div>
+                      {/* Right content */}
+                      <div style={{ flex: 1, padding: "12px 14px" }}>
+                        <div style={{ fontWeight: 700, fontSize: 15, color: "#1E293B", marginBottom: 4 }}>{hw.title}</div>
                         {dueDate && (
-                          <div style={{ fontSize: "12px", color: "#999", marginBottom: "10px" }}>
-                            ส่งก่อน {formatTime(hw.due_date!)}
+                          <div style={{ fontSize: 12, color: "#94A3B8", marginBottom: 10, display: "flex", alignItems: "center", gap: 4 }}>
+                            <Clock size={12} /> ส่งก่อน {formatTime(hw.due_date!)}
                           </div>
                         )}
-
                         {/* Progress bar */}
-                        <div
-                          style={{
-                            height: "6px",
-                            background: "#f0f0f0",
-                            borderRadius: "3px",
-                            overflow: "hidden",
-                            marginBottom: "6px",
-                          }}
-                        >
-                          <div
-                            style={{
-                              height: "100%",
-                              width: `${progress}%`,
-                              background: isAllDone
-                                ? "linear-gradient(90deg, #4CAF50, #66BB6A)"
-                                : "linear-gradient(90deg, #FFB300, #FFC107)",
-                              borderRadius: "3px",
-                              transition: "width 0.4s ease",
-                            }}
-                          />
+                        <div style={{ height: 5, background: "#E2E8F0", borderRadius: 3, overflow: "hidden", marginBottom: 6 }}>
+                          <div style={{ height: "100%", width: `${progress}%`, background: isAllDone ? "#3B82F6" : "#93C5FD", borderRadius: 3, transition: "width 0.4s" }} />
                         </div>
-
-                        {/* Status text */}
                         <div style={{ textAlign: "right" }}>
                           {isAllDone ? (
-                            <span style={{ fontSize: "12px", fontWeight: 600, color: "#4CAF50" }}>
-                              อ่านครบทุกคนแล้ว!
+                            <span style={{ fontSize: 12, fontWeight: 600, color: "#3B82F6", display: "inline-flex", alignItems: "center", gap: 4 }}>
+                              <CheckCircle2 size={13} /> อ่านครบทุกคนแล้ว!
                             </span>
                           ) : (
-                            <span style={{ fontSize: "12px", color: "#FFB300", fontWeight: 600 }}>
-                              อ่านแล้ว{" "}
-                              <span style={{ fontWeight: 700 }}>{doneCount}</span>
-                              <span style={{ color: "#ccc" }}>/{totalCount}</span>
+                            <span style={{ fontSize: 12, color: "#60A5FA", fontWeight: 600 }}>
+                              อ่านแล้ว <span style={{ fontWeight: 700 }}>{doneCount}</span>
+                              <span style={{ color: "#CBD5E1" }}>/{totalCount}</span>
                             </span>
                           )}
                         </div>
@@ -258,41 +149,13 @@ export default function HomeworkListPage() {
         )}
       </div>
 
-      {/* Sticky Footer Button */}
-      <div
-        style={{
-          position: "fixed",
-          bottom: 0,
-          left: 0,
-          right: 0,
-          padding: "12px 20px",
-          paddingBottom: "calc(12px + env(safe-area-inset-bottom, 0px))",
-          background: "rgba(255,255,255,0.95)",
-          backdropFilter: "blur(10px)",
-          borderTop: "1px solid #f0e8d0",
-          zIndex: 100,
-        }}
-      >
+      {/* Sticky footer */}
+      <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, padding: "12px 20px", paddingBottom: "calc(12px + env(safe-area-inset-bottom, 0px))", background: "rgba(240,244,250,0.95)", backdropFilter: "blur(10px)", borderTop: "1px solid #E2E8F0", zIndex: 100 }}>
         <button
-          onClick={handleCreateHomework}
-          style={{
-            display: "block",
-            width: "100%",
-            maxWidth: "400px",
-            margin: "0 auto",
-            padding: "14px",
-            background: "linear-gradient(135deg, #FFB300 0%, #FFA000 100%)",
-            color: "#fff",
-            fontSize: "16px",
-            fontWeight: 700,
-            border: "none",
-            borderRadius: "50px",
-            cursor: "pointer",
-            boxShadow: "0 4px 12px rgba(255,160,0,0.35)",
-            letterSpacing: "0.5px",
-          }}
+          onClick={() => (window.location.href = "/add-homework")}
+          style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%", maxWidth: 400, margin: "0 auto", padding: 14, background: "#2563EB", color: "#fff", fontSize: 15, fontWeight: 700, border: "none", borderRadius: 50, cursor: "pointer" }}
         >
-          สร้างการบ้าน
+          <Plus size={18} /> สร้างการบ้าน
         </button>
       </div>
     </div>
