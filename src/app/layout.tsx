@@ -17,11 +17,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="th">
-      <body className={`${inter.className} bg-gray-50 text-gray-900 antialiased`}>
+      <body className={`${inter.className} antialiased`} style={{ margin: 0, padding: 0 }}>
         <ClientProviders>
-          <div className="max-w-md mx-auto min-h-screen bg-white shadow-sm pb-12">
-            {children}
-          </div>
+          {children}
         </ClientProviders>
       </body>
     </html>

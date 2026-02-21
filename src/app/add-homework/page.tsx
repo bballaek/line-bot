@@ -10,37 +10,44 @@ export default function AddHomeworkPage() {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [dueDate, setDueDate] = useState("");
+  const [dueTime, setDueTime] = useState("18:00");
   const [loading, setLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
 
-  if (liffError) return <div className="p-4 text-red-500">Error: {liffError}</div>;
-  if (!isReady) return <div className="p-4 text-center">Loading LIFF...</div>;
+  const MAX_DESC = 1000;
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  if (liffError) return <div style={{ padding: 16, color: "red" }}>Error: {liffError}</div>;
+  if (!isReady) return <div style={{ padding: 16, textAlign: "center" }}>Loading...</div>;
+
+  const handleSubmit = async () => {
+    if (!subject.trim() || !title.trim()) {
+      alert("กรุณากรอกชื่อวิชาและชื่อการบ้าน");
+      return;
+    }
     setLoading(true);
     setSuccessMessage("");
 
     try {
       if (!userId) throw new Error("User ID not found");
 
-      // We need to fetch the internal user UUID associated with this LINE user ID
       const { data: userData, error: userError } = await supabase
         .from("users")
         .select("id")
         .eq("line_user_id", userId)
         .single();
-      
-      if (userError || !userData) {
-          throw new Error("Could not verify user in database.");
-      }
+
+      if (userError || !userData) throw new Error("ไม่สามารถยืนยันผู้ใช้ได้");
+
+      const dueDatetime = dueDate
+        ? new Date(`${dueDate}T${dueTime}:00`).toISOString()
+        : null;
 
       const { error } = await supabase.from("homeworks").insert({
         created_by: userData.id,
         subject,
         title,
         description,
-        due_date: dueDate ? new Date(dueDate).toISOString() : null,
+        due_date: dueDatetime,
       });
 
       if (error) throw error;
@@ -50,9 +57,7 @@ export default function AddHomeworkPage() {
       setTitle("");
       setDescription("");
       setDueDate("");
-
-      // Optional: Send a message on behalf of the user to confirm via liff.sendMessages
-      // ...
+      setDueTime("18:00");
     } catch (error: any) {
       console.error(error);
       alert(error.message || "เกิดข้อผิดพลาดในการบันทึก");
@@ -61,71 +66,308 @@ export default function AddHomeworkPage() {
     }
   };
 
-  return (
-    <div className="p-6">
-      <h1 className="text-2xl font-bold mb-6 text-indigo-600">➕ เพิ่มการบ้าน</h1>
-      
-      {successMessage && (
-        <div className="mb-4 p-3 bg-green-100 text-green-700 rounded-md">
-          {successMessage}
-        </div>
-      )}
+  const handleBack = () => {
+    window.location.href = "/homework-list";
+  };
 
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div>
-          <label className="block text-sm font-medium mb-1">วิชา</label>
+  return (
+    <div
+      style={{
+        minHeight: "100vh",
+        background: "#FFFDF5",
+        fontFamily: "'Inter', 'Noto Sans Thai', sans-serif",
+        display: "flex",
+        flexDirection: "column",
+      }}
+    >
+      {/* Fixed Header */}
+      <div
+        style={{
+          position: "sticky",
+          top: 0,
+          zIndex: 50,
+          display: "flex",
+          alignItems: "center",
+          padding: "14px 16px",
+          background: "rgba(255,253,245,0.95)",
+          backdropFilter: "blur(10px)",
+          borderBottom: "1px solid #f0e8d0",
+        }}
+      >
+        <button
+          onClick={handleBack}
+          style={{
+            background: "none",
+            border: "none",
+            fontSize: "22px",
+            cursor: "pointer",
+            padding: "4px 8px",
+            color: "#333",
+          }}
+        >
+          ←
+        </button>
+        <h1
+          style={{
+            flex: 1,
+            textAlign: "center",
+            fontSize: "17px",
+            fontWeight: 700,
+            color: "#333",
+            margin: 0,
+            paddingRight: "36px",
+          }}
+        >
+          สร้างการบ้าน
+        </h1>
+      </div>
+
+      {/* Banner Image Area */}
+      <div
+        style={{
+          margin: "16px 16px 0",
+          borderRadius: "16px",
+          overflow: "hidden",
+          background: "linear-gradient(135deg, #FFF8E1 0%, #FFE0B2 100%)",
+          padding: "28px 20px",
+          textAlign: "center",
+          border: "1px dashed #FFB300",
+          position: "relative",
+        }}
+      >
+        <div style={{ fontSize: "48px", marginBottom: "8px" }}>📝✏️📚</div>
+        <button
+          style={{
+            background: "linear-gradient(135deg, #FFB300 0%, #FFA000 100%)",
+            color: "#fff",
+            border: "none",
+            borderRadius: "50px",
+            padding: "8px 20px",
+            fontSize: "13px",
+            fontWeight: 600,
+            cursor: "pointer",
+            boxShadow: "0 2px 8px rgba(255,160,0,0.3)",
+          }}
+        >
+          📎 อัปโหลดภาพ
+        </button>
+      </div>
+
+      {/* Form */}
+      <div style={{ padding: "20px 16px", flex: 1, paddingBottom: "100px" }}>
+        <h2
+          style={{
+            fontSize: "16px",
+            fontWeight: 700,
+            color: "#333",
+            marginBottom: "16px",
+          }}
+        >
+          ข้อมูลการบ้าน
+        </h2>
+
+        {successMessage && (
+          <div
+            style={{
+              marginBottom: "16px",
+              padding: "12px 16px",
+              background: "#E8F5E9",
+              color: "#2E7D32",
+              borderRadius: "12px",
+              fontSize: "14px",
+              fontWeight: 600,
+            }}
+          >
+            ✅ {successMessage}
+          </div>
+        )}
+
+        {/* Subject */}
+        <div style={{ marginBottom: "16px" }}>
+          <label
+            style={{
+              display: "block",
+              fontSize: "13px",
+              fontWeight: 600,
+              color: "#555",
+              marginBottom: "6px",
+            }}
+          >
+            <span style={{ color: "#E53935" }}>*</span> ชื่อวิชา
+          </label>
           <input
             type="text"
-            required
-            className="w-full border border-gray-300 rounded-md p-2 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
-            placeholder="เช่น คณิตศาสตร์"
+            placeholder="เช่น ศิลปะ, คณิตศาสตร์"
             value={subject}
             onChange={(e) => setSubject(e.target.value)}
+            style={{
+              width: "100%",
+              padding: "12px 14px",
+              border: "1px solid #e0d8c0",
+              borderRadius: "12px",
+              fontSize: "15px",
+              background: "#fff",
+              outline: "none",
+              boxSizing: "border-box",
+            }}
           />
         </div>
 
-        <div>
-          <label className="block text-sm font-medium mb-1">หัวข้อการบ้าน</label>
+        {/* Title */}
+        <div style={{ marginBottom: "16px" }}>
+          <label
+            style={{
+              display: "block",
+              fontSize: "13px",
+              fontWeight: 600,
+              color: "#555",
+              marginBottom: "6px",
+            }}
+          >
+            <span style={{ color: "#E53935" }}>*</span> ชื่อการบ้าน
+          </label>
           <input
             type="text"
-            required
-            className="w-full border border-gray-300 rounded-md p-2 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
-            placeholder="ทำแบบฝึกหัดหน้า 45"
+            placeholder="🎨 ระบายสีน้ำให้สัตว์โลกแสนน่ารัก 🐱"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
+            style={{
+              width: "100%",
+              padding: "12px 14px",
+              border: "1px solid #e0d8c0",
+              borderRadius: "12px",
+              fontSize: "15px",
+              background: "#fff",
+              outline: "none",
+              boxSizing: "border-box",
+            }}
           />
         </div>
 
-        <div>
-          <label className="block text-sm font-medium mb-1">รายละเอียด (ใส่หรือไม่ก็ได้)</label>
+        {/* Description */}
+        <div style={{ marginBottom: "16px" }}>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              marginBottom: "6px",
+            }}
+          >
+            <label style={{ fontSize: "13px", fontWeight: 600, color: "#555" }}>
+              รายละเอียดการบ้าน
+            </label>
+            <span style={{ fontSize: "12px", color: "#bbb" }}>
+              {description.length}/{MAX_DESC}
+            </span>
+          </div>
           <textarea
-            className="w-full border border-gray-300 rounded-md p-2 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
-            rows={3}
-            placeholder="ครูสั่งให้ทำข้อ 1-10 ถ่ายรูปส่งในอัลบั้มด้วย"
+            placeholder="วันนี้ครูฝากไหม 🌷 มีงานศิลปะแสนสนุก อยากมาชวนน้องๆ ห้อง ป.1/2 ทำด้วยกันนะค้า 🎨"
             value={description}
-            onChange={(e) => setDescription(e.target.value)}
-          ></textarea>
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium mb-1">กำหนดส่ง</label>
-          <input
-            type="datetime-local"
-            required
-            className="w-full border border-gray-300 rounded-md p-2 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
-            value={dueDate}
-            onChange={(e) => setDueDate(e.target.value)}
+            onChange={(e) => {
+              if (e.target.value.length <= MAX_DESC) setDescription(e.target.value);
+            }}
+            rows={4}
+            style={{
+              width: "100%",
+              padding: "12px 14px",
+              border: "1px solid #e0d8c0",
+              borderRadius: "12px",
+              fontSize: "14px",
+              background: "#fff",
+              outline: "none",
+              resize: "none",
+              lineHeight: 1.6,
+              boxSizing: "border-box",
+            }}
           />
         </div>
 
+        {/* Due Date */}
+        <div style={{ marginBottom: "16px" }}>
+          <label
+            style={{
+              display: "block",
+              fontSize: "13px",
+              fontWeight: 600,
+              color: "#555",
+              marginBottom: "6px",
+            }}
+          >
+            📅 กำหนดส่ง
+          </label>
+          <div style={{ display: "flex", gap: "8px" }}>
+            <input
+              type="date"
+              value={dueDate}
+              onChange={(e) => setDueDate(e.target.value)}
+              style={{
+                flex: 1,
+                padding: "12px 14px",
+                border: "1px solid #e0d8c0",
+                borderRadius: "12px",
+                fontSize: "15px",
+                background: "#fff",
+                outline: "none",
+              }}
+            />
+            <input
+              type="time"
+              value={dueTime}
+              onChange={(e) => setDueTime(e.target.value)}
+              style={{
+                width: "120px",
+                padding: "12px 14px",
+                border: "1px solid #e0d8c0",
+                borderRadius: "12px",
+                fontSize: "15px",
+                background: "#fff",
+                outline: "none",
+              }}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Fixed Footer Button */}
+      <div
+        style={{
+          position: "fixed",
+          bottom: 0,
+          left: 0,
+          right: 0,
+          padding: "12px 20px",
+          paddingBottom: "calc(12px + env(safe-area-inset-bottom, 0px))",
+          background: "rgba(255,253,245,0.95)",
+          backdropFilter: "blur(10px)",
+          borderTop: "1px solid #f0e8d0",
+          zIndex: 100,
+        }}
+      >
         <button
-          type="submit"
+          onClick={handleSubmit}
           disabled={loading}
-          className="w-full bg-indigo-600 text-white font-medium py-2 rounded-md hover:bg-indigo-700 transition disabled:bg-gray-400"
+          style={{
+            display: "block",
+            width: "100%",
+            maxWidth: "400px",
+            margin: "0 auto",
+            padding: "14px",
+            background: loading
+              ? "#ccc"
+              : "linear-gradient(135deg, #FFB300 0%, #FFA000 100%)",
+            color: "#fff",
+            fontSize: "16px",
+            fontWeight: 700,
+            border: "none",
+            borderRadius: "50px",
+            cursor: loading ? "not-allowed" : "pointer",
+            boxShadow: loading ? "none" : "0 4px 12px rgba(255,160,0,0.35)",
+            letterSpacing: "0.5px",
+          }}
         >
-          {loading ? "กำลังบันทึก..." : "📥 บันทึกการบ้าน"}
+          {loading ? "กำลังบันทึก..." : "ถัดไป"}
         </button>
-      </form>
+      </div>
     </div>
   );
 }
