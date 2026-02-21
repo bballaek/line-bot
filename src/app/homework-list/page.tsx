@@ -3,8 +3,6 @@
 import { useEffect, useState } from "react";
 import { useLiff } from "@/lib/liff-provider";
 import { supabase } from "@/lib/supabase";
-import { format, isPast, isToday, isTomorrow, formatDistanceToNow } from "date-fns";
-import { th } from "date-fns/locale";
 
 type Homework = {
   id: string;
@@ -14,6 +12,32 @@ type Homework = {
   created_at: string;
   user_homeworks: { status: string }[];
 };
+
+type GroupedHomework = {
+  [monthYear: string]: Homework[];
+};
+
+const THAI_MONTHS = [
+  "มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน",
+  "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม",
+  "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม",
+];
+
+const THAI_DAYS = ["อาทิตย์", "จันทร์", "อังคาร", "พุธ", "พฤหัสบดี", "ศุกร์", "เสาร์"];
+
+function toBuddhistYear(year: number) {
+  return year + 543;
+}
+
+function formatThaiMonthYear(dateStr: string) {
+  const d = new Date(dateStr);
+  return `${THAI_MONTHS[d.getMonth()]} ${toBuddhistYear(d.getFullYear())}`;
+}
+
+function formatTime(dateStr: string) {
+  const d = new Date(dateStr);
+  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")} น.`;
+}
 
 export default function HomeworkListPage() {
   const { isReady, liffError, userId } = useLiff();
@@ -29,7 +53,6 @@ export default function HomeworkListPage() {
   const fetchHomeworks = async () => {
     try {
       setLoading(true);
-      // Fetch user's internal ID
       const { data: userData } = await supabase
         .from("users")
         .select("id")
@@ -38,23 +61,16 @@ export default function HomeworkListPage() {
 
       if (!userData) return;
 
-      // Fetch all homeworks
-      // In a real app, you might want to filter by group or relevance
-      // Here we fetch all homeworks and join with user_homeworks to get status
       const { data, error } = await supabase
         .from("homeworks")
-        .select(`
-          id, subject, title, due_date, created_at,
-          user_homeworks ( status )
-        `)
-        .order("due_date", { ascending: true }); // nearest first
+        .select(`id, subject, title, due_date, created_at, user_homeworks ( status )`)
+        .order("due_date", { ascending: false });
 
       if (error) throw error;
 
-      // Filter and format the data
-      const formattedData = data?.map(hw => ({
+      const formattedData = data?.map((hw) => ({
         ...hw,
-        user_homeworks: hw.user_homeworks || []
+        user_homeworks: hw.user_homeworks || [],
       })) as Homework[];
 
       setHomeworks(formattedData);
@@ -65,122 +81,220 @@ export default function HomeworkListPage() {
     }
   };
 
-  const markAsDone = async (homeworkId: string) => {
-    try {
-      const { data: userData } = await supabase
-        .from("users")
-        .select("id")
-        .eq("line_user_id", userId as string)
-        .single();
-      
-      if (!userData) return;
+  // Group homeworks by month/year
+  const grouped: GroupedHomework = {};
+  homeworks.forEach((hw) => {
+    const key = hw.due_date ? formatThaiMonthYear(hw.due_date) : "ไม่มีกำหนดส่ง";
+    if (!grouped[key]) grouped[key] = [];
+    grouped[key].push(hw);
+  });
 
-      // Upsert status to "done"
-      const { error } = await supabase
-        .from("user_homeworks")
-        .upsert(
-          { 
-            user_id: userData.id, 
-            homework_id: homeworkId, 
-            status: "done",
-            updated_at: new Date().toISOString()
-          },
-          { onConflict: "user_id,homework_id" }
-        );
-
-      if (error) throw error;
-
-      // Refresh list
-      fetchHomeworks();
-    } catch (error) {
-      console.error("Error updating status:", error);
-      alert("อัปเดตสถานะไม่สำเร็จ");
-    }
-  };
-
-  const formatDueDateMessage = (dateString: string | null) => {
-    if (!dateString) return "ไม่มีกำหนดส่ง";
-    const date = new Date(dateString);
-    if (isPast(date)) return "เลยกำหนดแล้ว!";
-    if (isToday(date)) return "ส่งวันนี้";
-    if (isTomorrow(date)) return "ส่งพรุ่งนี้";
-    return `เหลืออีก ${formatDistanceToNow(date, { locale: th })}`;
+  const handleCreateHomework = () => {
+    window.location.href = "/add-homework";
   };
 
   if (liffError) return <div className="p-4 text-red-500">Error: {liffError}</div>;
-  if (!isReady) return <div className="p-4 text-center">Loading LIFF...</div>;
+  if (!isReady) return <div className="p-4 text-center">Loading...</div>;
 
   return (
-    <div className="p-4 bg-gray-50 min-h-screen">
-      <h1 className="text-2xl font-bold mb-6 text-indigo-600">📋 รายการการบ้าน</h1>
-      
-      {loading ? (
-        <div className="text-center py-10 text-gray-500">กำลังโหลดข้อมูล...</div>
-      ) : homeworks.length === 0 ? (
-        <div className="text-center py-10 text-gray-500 bg-white rounded-lg shadow-sm border border-gray-100">
-          🎉 ไม่มีหน้าบ้านค้างส่ง สบายใจได้เลย!
-        </div>
-      ) : (
-        <div className="space-y-4">
-          {homeworks.map((hw) => {
-            const isDone = hw.user_homeworks.some(uh => uh.status === "done");
-            
-            return (
-              <div 
-                key={hw.id} 
-                className={`p-4 rounded-xl shadow-sm border ${
-                  isDone 
-                    ? "bg-gray-50 border-gray-200 opacity-60" 
-                    : "bg-white border-indigo-100"
-                }`}
+    <div
+      style={{
+        minHeight: "100vh",
+        background: "linear-gradient(180deg, #FFF8E1 0%, #FFFDF5 100%)",
+        fontFamily: "'Inter', 'Noto Sans Thai', sans-serif",
+        paddingBottom: "80px",
+      }}
+    >
+      {/* Header */}
+      <div
+        style={{
+          background: "linear-gradient(135deg, #FFB300 0%, #FFA000 100%)",
+          padding: "16px 20px",
+          textAlign: "center",
+          color: "#fff",
+          fontWeight: 700,
+          fontSize: "17px",
+          letterSpacing: "0.3px",
+          boxShadow: "0 2px 8px rgba(255,160,0,0.3)",
+        }}
+      >
+        📋 การบ้านทั้งหมด
+      </div>
+
+      {/* Content */}
+      <div style={{ padding: "16px 16px 0" }}>
+        {loading ? (
+          <div style={{ textAlign: "center", padding: "60px 0", color: "#999" }}>
+            กำลังโหลดข้อมูล...
+          </div>
+        ) : homeworks.length === 0 ? (
+          <div
+            style={{
+              textAlign: "center",
+              padding: "60px 20px",
+              color: "#999",
+              background: "#fff",
+              borderRadius: "16px",
+              boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
+            }}
+          >
+            <div style={{ fontSize: "40px", marginBottom: "12px" }}>🎉</div>
+            <div style={{ fontWeight: 600, color: "#666" }}>ไม่มีการบ้านค้างส่ง</div>
+            <div style={{ fontSize: "13px", marginTop: "4px" }}>สบายใจได้เลย!</div>
+          </div>
+        ) : (
+          Object.entries(grouped).map(([monthYear, items]) => (
+            <div key={monthYear} style={{ marginBottom: "24px" }}>
+              {/* Month Header */}
+              <h2
+                style={{
+                  fontSize: "18px",
+                  fontWeight: 700,
+                  color: "#333",
+                  marginBottom: "12px",
+                  paddingLeft: "4px",
+                }}
               >
-                <div className="flex justify-between items-start mb-2">
-                  <span className={`text-xs font-semibold px-2 py-1 rounded-full ${
-                    isDone ? "bg-gray-200 text-gray-600" : "bg-indigo-100 text-indigo-700"
-                  }`}>
-                    {hw.subject}
-                  </span>
-                  
-                  {hw.due_date && (
-                    <span className={`text-xs font-medium flex items-center ${
-                      isPast(new Date(hw.due_date)) && !isDone 
-                        ? "text-red-600" 
-                        : "text-gray-500"
-                    }`}>
-                      ⏰ {formatDueDateMessage(hw.due_date)}
-                    </span>
-                  )}
-                </div>
-                
-                <h3 className={`text-lg font-bold mb-1 ${isDone ? "text-gray-600 line-through" : "text-gray-900"}`}>
-                  {hw.title}
-                </h3>
-                
-                {hw.due_date && (
-                  <div className="text-sm text-gray-500 mb-4">
-                    กำหนดส่ง: {format(new Date(hw.due_date), "d MMM yyyy HH:mm", { locale: th })}
-                  </div>
-                )}
-                
-                <div className="flex justify-end mt-4 pt-4 border-t border-gray-100">
-                  {isDone ? (
-                    <span className="text-green-600 font-medium text-sm flex items-center">
-                      ✅ ส่งแล้ว
-                    </span>
-                  ) : (
-                    <button 
-                      onClick={() => markAsDone(hw.id)}
-                      className="bg-green-500 hover:bg-green-600 text-white text-sm font-medium py-1.5 px-4 rounded-lg transition"
+                {monthYear}
+              </h2>
+
+              {/* Homework Cards */}
+              <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                {items.map((hw) => {
+                  const dueDate = hw.due_date ? new Date(hw.due_date) : null;
+                  const dayName = dueDate ? THAI_DAYS[dueDate.getDay()] : "";
+                  const dateNum = dueDate ? dueDate.getDate() : "";
+                  const doneCount = hw.user_homeworks.filter((uh) => uh.status === "done").length;
+                  const totalCount = hw.user_homeworks.length || 1;
+                  const progress = totalCount > 0 ? (doneCount / totalCount) * 100 : 0;
+                  const isAllDone = doneCount === totalCount && totalCount > 0;
+
+                  return (
+                    <div
+                      key={hw.id}
+                      style={{
+                        display: "flex",
+                        background: "#fff",
+                        borderRadius: "14px",
+                        overflow: "hidden",
+                        boxShadow: "0 1px 6px rgba(0,0,0,0.06)",
+                        border: "1px solid #f0e8d0",
+                      }}
                     >
-                      ทำเสร็จแล้ว
-                    </button>
-                  )}
-                </div>
+                      {/* Left: Day + Date */}
+                      <div
+                        style={{
+                          display: "flex",
+                          flexDirection: "column",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          padding: "16px 14px",
+                          minWidth: "70px",
+                          borderRight: "1px solid #f0e8d0",
+                          color: "#888",
+                        }}
+                      >
+                        <span style={{ fontSize: "12px", fontWeight: 500 }}>{dayName}</span>
+                        <span style={{ fontSize: "28px", fontWeight: 700, color: "#333", lineHeight: 1.2 }}>
+                          {dateNum}
+                        </span>
+                      </div>
+
+                      {/* Right: Details */}
+                      <div style={{ flex: 1, padding: "14px 16px" }}>
+                        <div style={{ fontWeight: 700, fontSize: "15px", color: "#222", marginBottom: "4px" }}>
+                          {hw.title}
+                        </div>
+                        {dueDate && (
+                          <div style={{ fontSize: "12px", color: "#999", marginBottom: "10px" }}>
+                            ส่งก่อน {formatTime(hw.due_date!)}
+                          </div>
+                        )}
+
+                        {/* Progress bar */}
+                        <div
+                          style={{
+                            height: "6px",
+                            background: "#f0f0f0",
+                            borderRadius: "3px",
+                            overflow: "hidden",
+                            marginBottom: "6px",
+                          }}
+                        >
+                          <div
+                            style={{
+                              height: "100%",
+                              width: `${progress}%`,
+                              background: isAllDone
+                                ? "linear-gradient(90deg, #4CAF50, #66BB6A)"
+                                : "linear-gradient(90deg, #FFB300, #FFC107)",
+                              borderRadius: "3px",
+                              transition: "width 0.4s ease",
+                            }}
+                          />
+                        </div>
+
+                        {/* Status text */}
+                        <div style={{ textAlign: "right" }}>
+                          {isAllDone ? (
+                            <span style={{ fontSize: "12px", fontWeight: 600, color: "#4CAF50" }}>
+                              อ่านครบทุกคนแล้ว!
+                            </span>
+                          ) : (
+                            <span style={{ fontSize: "12px", color: "#FFB300", fontWeight: 600 }}>
+                              อ่านแล้ว{" "}
+                              <span style={{ fontWeight: 700 }}>{doneCount}</span>
+                              <span style={{ color: "#ccc" }}>/{totalCount}</span>
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
-            );
-          })}
-        </div>
-      )}
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* Sticky Footer Button */}
+      <div
+        style={{
+          position: "fixed",
+          bottom: 0,
+          left: 0,
+          right: 0,
+          padding: "12px 20px",
+          paddingBottom: "calc(12px + env(safe-area-inset-bottom, 0px))",
+          background: "rgba(255,255,255,0.95)",
+          backdropFilter: "blur(10px)",
+          borderTop: "1px solid #f0e8d0",
+          zIndex: 100,
+        }}
+      >
+        <button
+          onClick={handleCreateHomework}
+          style={{
+            display: "block",
+            width: "100%",
+            maxWidth: "400px",
+            margin: "0 auto",
+            padding: "14px",
+            background: "linear-gradient(135deg, #FFB300 0%, #FFA000 100%)",
+            color: "#fff",
+            fontSize: "16px",
+            fontWeight: 700,
+            border: "none",
+            borderRadius: "50px",
+            cursor: "pointer",
+            boxShadow: "0 4px 12px rgba(255,160,0,0.35)",
+            letterSpacing: "0.5px",
+          }}
+        >
+          สร้างการบ้าน
+        </button>
+      </div>
     </div>
   );
 }
