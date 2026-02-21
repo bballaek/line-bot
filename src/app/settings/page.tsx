@@ -3,150 +3,134 @@
 import { useState, useEffect } from "react";
 import { useLiff } from "@/lib/liff-provider";
 import { supabase } from "@/lib/supabase";
+import { ArrowLeft, Check, Plus } from "lucide-react";
+
+const PRESET_OPTIONS = [
+  { label: "1 ชั่วโมงก่อนกำหนดส่ง", value: "1h" },
+  { label: "6 ชั่วโมงก่อนกำหนดส่ง", value: "6h" },
+  { label: "1 วันก่อนวันกำหนดส่ง", value: "1d" },
+  { label: "3 วันก่อนวันกำหนดส่ง", value: "3d" },
+  { label: "1 สัปดาห์ก่อนวันกำหนดส่ง", value: "1w" },
+];
+
+const MAX_SELECTIONS = 3;
 
 export default function SettingsPage() {
   const { isReady, liffError, userId } = useLiff();
-  const [notifyTime, setNotifyTime] = useState("19:00");
-  const [notifyDays, setNotifyDays] = useState<number[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [selected, setSelected] = useState<string[]>(["1d"]);
   const [saving, setSaving] = useState(false);
-  const [successMessage, setSuccessMessage] = useState("");
+  const [saved, setSaved] = useState(false);
 
-  const daysOptions = [
-    { label: "1 วันก่อนส่ง", value: 1 },
-    { label: "3 วันก่อนส่ง", value: 3 },
-    { label: "5 วันก่อนส่ง", value: 5 },
-    { label: "7 วันก่อนส่ง", value: 7 },
-  ];
+  if (liffError) return <div style={{ padding: 16, color: "#E53935" }}>Error: {liffError}</div>;
+  if (!isReady) return <div style={{ padding: 16, textAlign: "center", color: "#94A3B8" }}>Loading...</div>;
 
   useEffect(() => {
-    if (isReady && userId) {
-      fetchSettings();
-    }
+    if (isReady && userId) loadSettings();
   }, [isReady, userId]);
 
-  const fetchSettings = async () => {
+  const loadSettings = async () => {
     try {
-      setLoading(true);
       const { data: userData } = await supabase
-        .from("users")
-        .select("id")
-        .eq("line_user_id", userId as string)
-        .single();
-      
+        .from("users").select("id").eq("line_user_id", userId as string).single();
       if (!userData) return;
-
-      const { data, error } = await supabase
-        .from("user_settings")
-        .select("*")
-        .eq("user_id", userData.id)
-        .single();
-
-      if (error && error.code !== 'PGRST116') throw error; // PGRST116 is no rows returned yet
-
-      if (data) {
-        setNotifyTime(data.notify_time || "19:00");
-        setNotifyDays(data.notify_days || []);
+      const { data } = await supabase
+        .from("user_settings").select("notify_days").eq("user_id", userData.id).single();
+      if (data?.notify_days && Array.isArray(data.notify_days)) {
+        setSelected(data.notify_days);
       }
-    } catch (error) {
-      console.error("Error fetching settings:", error);
-    } finally {
-      setLoading(false);
-    }
+    } catch (e) { console.error(e); }
   };
 
-  const toggleDay = (dayValue: number) => {
-    setNotifyDays(prev => 
-      prev.includes(dayValue) 
-        ? prev.filter(d => d !== dayValue)
-        : [...prev, dayValue]
-    );
+  const toggleOption = (val: string) => {
+    setSelected((prev) => {
+      if (prev.includes(val)) return prev.filter((v) => v !== val);
+      if (prev.length >= MAX_SELECTIONS) {
+        alert(`เลือกได้สูงสุด ${MAX_SELECTIONS} อัน`);
+        return prev;
+      }
+      return [...prev, val];
+    });
   };
 
   const handleSave = async () => {
     setSaving(true);
-    setSuccessMessage("");
-    
+    setSaved(false);
     try {
       const { data: userData } = await supabase
-        .from("users")
-        .select("id")
-        .eq("line_user_id", userId as string)
-        .single();
-      
+        .from("users").select("id").eq("line_user_id", userId as string).single();
       if (!userData) throw new Error("User not found");
 
-      const { error } = await supabase
-        .from("user_settings")
-        .upsert(
-          {
-            user_id: userData.id,
-            notify_time: notifyTime,
-            notify_days: notifyDays
-          },
-          { onConflict: "user_id" }
-        );
-
-      if (error) throw error;
-      setSuccessMessage("บันทึกการตั้งค่าเรียบร้อยแล้ว");
-    } catch (error: any) {
-      console.error(error);
-      alert("เกิดข้อผิดพลาดในการบันทึก");
-    } finally {
-      setSaving(false);
-    }
+      await supabase.from("user_settings").upsert(
+        { user_id: userData.id, notify_days: selected },
+        { onConflict: "user_id" }
+      );
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } catch (err: any) {
+      console.error(err);
+      alert(err.message || "เกิดข้อผิดพลาด");
+    } finally { setSaving(false); }
   };
 
-  if (liffError) return <div className="p-4 text-red-500">Error: {liffError}</div>;
-  if (!isReady || loading) return <div className="p-4 text-center">Loading Settings...</div>;
-
   return (
-    <div className="p-6">
-      <h1 className="text-2xl font-bold mb-6 text-indigo-600">⚙️ ตั้งค่าการแจ้งเตือน</h1>
-      
-      {successMessage && (
-        <div className="mb-6 p-3 bg-green-100 text-green-700 rounded-md">
-          {successMessage}
-        </div>
-      )}
+    <div style={{ minHeight: "100vh", background: "#F0F4FA", display: "flex", flexDirection: "column" }}>
+      {/* Header */}
+      <div style={{ position: "sticky", top: 0, zIndex: 50, display: "flex", alignItems: "center", padding: "14px 16px", background: "rgba(240,244,250,0.95)", backdropFilter: "blur(10px)", borderBottom: "1px solid #E2E8F0" }}>
+        <button onClick={() => (window.location.href = "/homework-list")} style={{ background: "none", border: "none", cursor: "pointer", padding: "4px 8px", color: "#475569", display: "flex", alignItems: "center" }}>
+          <ArrowLeft size={22} />
+        </button>
+        <h1 style={{ flex: 1, textAlign: "center", fontSize: 17, fontWeight: 700, color: "#1E293B", margin: 0, paddingRight: 36 }}>ตั้งค่า</h1>
+      </div>
 
-      <div className="space-y-6">
-        <div>
-          <label className="block text-sm font-semibold mb-2">เวลาที่ต้องการให้แจ้งเตือน</label>
-          <input
-            type="time"
-            className="w-full border border-gray-300 rounded-md p-3 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
-            value={notifyTime}
-            onChange={(e) => setNotifyTime(e.target.value)}
-          />
-          <p className="text-xs text-gray-500 mt-1">บอทจะสรุปการบ้านให้ตามเวลานี้</p>
-        </div>
+      {/* Content */}
+      <div style={{ padding: "20px 16px", flex: 1, paddingBottom: 100 }}>
+        <h2 style={{ fontSize: 15, fontWeight: 700, color: "#1E293B", marginBottom: 16 }}>การแจ้งเตือนก่อนถึงกำหนด</h2>
 
-        <div>
-          <label className="block text-sm font-semibold mb-3">แจ้งเตือนล่วงหน้า (เลือกได้หลายข้อ)</label>
-          <div className="grid grid-cols-2 gap-3">
-            {daysOptions.map(option => (
-              <button
-                key={option.value}
-                onClick={() => toggleDay(option.value)}
-                className={`py-3 px-2 rounded-xl border text-sm font-medium transition-colors ${
-                  notifyDays.includes(option.value)
-                    ? "bg-indigo-100 border-indigo-500 text-indigo-700"
-                    : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"
-                }`}
+        <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
+          {PRESET_OPTIONS.map((opt, i) => {
+            const isSelected = selected.includes(opt.value);
+            return (
+              <div
+                key={opt.value}
+                onClick={() => toggleOption(opt.value)}
+                style={{
+                  display: "flex", alignItems: "center", justifyContent: "space-between",
+                  padding: "14px 16px", background: "#fff", cursor: "pointer",
+                  borderTop: i === 0 ? "1px solid #E2E8F0" : "none",
+                  borderLeft: "1px solid #E2E8F0", borderRight: "1px solid #E2E8F0",
+                  borderBottom: "1px solid #E2E8F0",
+                  borderRadius: i === 0 ? "12px 12px 0 0" : i === PRESET_OPTIONS.length - 1 ? "0 0 12px 12px" : 0,
+                }}
               >
-                {option.label}
-              </button>
-            ))}
-          </div>
+                <span style={{ fontSize: 14, color: "#1E293B" }}>{opt.label}</span>
+                {isSelected && <Check size={18} color="#2563EB" />}
+              </div>
+            );
+          })}
         </div>
 
-        <button
-          onClick={handleSave}
-          disabled={saving}
-          className="w-full mt-8 bg-indigo-600 text-white font-medium py-3 rounded-xl shadow-sm hover:bg-indigo-700 transition disabled:bg-gray-400"
+        {/* Custom option */}
+        <div
+          style={{
+            display: "flex", alignItems: "center", gap: 8,
+            padding: "14px 16px", marginTop: 12, cursor: "pointer",
+            color: "#2563EB", fontSize: 14, fontWeight: 500,
+          }}
         >
-          {saving ? "กำลังบันทึก..." : "💾 บันทึกการตั้งค่า"}
+          <Plus size={16} /> กำหนดเอง
+        </div>
+
+        <div style={{ fontSize: 12, color: "#94A3B8", marginTop: 8, paddingLeft: 4 }}>
+          เลือกได้สูงสุด {MAX_SELECTIONS} รายการ (เลือกแล้ว {selected.length}/{MAX_SELECTIONS})
+        </div>
+      </div>
+
+      {/* Footer */}
+      <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, padding: "12px 20px", paddingBottom: "calc(12px + env(safe-area-inset-bottom, 0px))", background: "rgba(240,244,250,0.95)", backdropFilter: "blur(10px)", borderTop: "1px solid #E2E8F0", zIndex: 100 }}>
+        <button onClick={handleSave} disabled={saving}
+          style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%", maxWidth: 400, margin: "0 auto", padding: 14, background: saving ? "#94A3B8" : "#2563EB", color: "#fff", fontSize: 15, fontWeight: 700, border: "none", borderRadius: 50, cursor: saving ? "not-allowed" : "pointer" }}
+        >
+          {saving ? "กำลังบันทึก..." : saved ? "บันทึกแล้ว!" : "ตกลง"}
         </button>
       </div>
     </div>

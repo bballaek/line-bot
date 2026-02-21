@@ -1,9 +1,13 @@
 import './globals.css';
 import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
+import { Noto_Sans_Thai } from 'next/font/google';
 import ClientProviders from './providers';
 
-const inter = Inter({ subsets: ['latin'] });
+const notoSansThai = Noto_Sans_Thai({
+  subsets: ['thai', 'latin'],
+  weight: ['300', '400', '500', '600', '700'],
+  display: 'swap',
+});
 
 export const metadata: Metadata = {
   title: 'Homework Tracker LIFF',
@@ -17,7 +21,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="th">
-      <body className={`${inter.className} antialiased`} style={{ margin: 0, padding: 0 }}>
+      <body className={`${notoSansThai.className} antialiased`} style={{ margin: 0, padding: 0 }}>
         <ClientProviders>
           {children}
         </ClientProviders>
@@ -25,4 +29,3 @@ export default function RootLayout({
     </html>
   );
 }
-
