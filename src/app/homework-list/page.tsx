@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useLiff } from "@/lib/liff-provider";
 import { supabase } from "@/lib/supabase";
-import { ClipboardList, Plus, CheckCircle2, Send, X, MessageSquare, Users, ChevronRight, ArrowLeft, CalendarDays, BookOpen } from "lucide-react";
+import { ClipboardList, Plus, CheckCircle2, Send, X, MessageSquare, Users, ChevronRight, ArrowLeft, Clock, BookOpen } from "lucide-react";
 
 type Homework = {
   id: string; subject: string; title: string; description: string;
@@ -12,28 +12,29 @@ type Homework = {
 };
 type Group = { id: string; line_group_id: string; group_name: string };
 
-const THAI_MONTHS = ["ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.","มิ.ย.","ก.ค.","ส.ค.","ก.ย.","ต.ค.","พ.ย.","ธ.ค."];
+const THAI_MONTHS_LONG = ["มกราคม","กุมภาพันธ์","มีนาคม","เมษายน","พฤษภาคม","มิถุนายน","กรกฎาคม","สิงหาคม","กันยายน","ตุลาคม","พฤศจิกายน","ธันวาคม"];
+const THAI_DAYS = ["อาทิตย์","จันทร์","อังคาร","พุธ","พฤหัสบดี","ศุกร์","เสาร์"];
+const toBE = (y: number) => y + 543;
+const getMonthKey = (d: Date) => `${THAI_MONTHS_LONG[d.getMonth()]} ${toBE(d.getFullYear())}`;
+const getDateKey = (d: Date) => `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+const formatTime = (s: string) => { const d = new Date(s); return `${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")} น.`; };
 
-function formatDate(s: string) {
-  const d = new Date(s);
-  return `${d.getDate()} ${THAI_MONTHS[d.getMonth()]} ${d.getFullYear() + 543}`;
-}
+type MonthGroup = { month: string; dateGroups: { dateKey: string; dayName: string; dateNum: number; items: Homework[] }[] };
 
-function timeAgo(s: string) {
-  const diff = Date.now() - new Date(s).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return "เมื่อสักครู่";
-  if (mins < 60) return `${mins} นาทีที่แล้ว`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs} ชั่วโมงที่แล้ว`;
-  const days = Math.floor(hrs / 24);
-  if (days < 7) return `${days} วันที่แล้ว`;
-  return formatDate(s);
-}
-
-function formatDue(s: string) {
-  const d = new Date(s);
-  return `${d.getDate()} ${THAI_MONTHS[d.getMonth()]} ${d.getFullYear() + 543} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")} น.`;
+function groupHomeworks(homeworks: Homework[]): MonthGroup[] {
+  const mm = new Map<string, Map<string, { dayName: string; dateNum: number; items: Homework[] }>>();
+  homeworks.forEach((hw) => {
+    const ref = hw.due_date || hw.created_at;
+    const d = new Date(ref);
+    const mK = getMonthKey(d), dK = getDateKey(d);
+    if (!mm.has(mK)) mm.set(mK, new Map());
+    const dm = mm.get(mK)!;
+    if (!dm.has(dK)) dm.set(dK, { dayName: THAI_DAYS[d.getDay()], dateNum: d.getDate(), items: [] });
+    dm.get(dK)!.items.push(hw);
+  });
+  const r: MonthGroup[] = [];
+  mm.forEach((dm, m) => { const dgs: any[] = []; dm.forEach((v, k) => dgs.push({ dateKey: k, ...v })); r.push({ month: m, dateGroups: dgs }); });
+  return r;
 }
 
 export default function HomeworkListPage() {
@@ -41,7 +42,6 @@ export default function HomeworkListPage() {
   const [homeworks, setHomeworks] = useState<Homework[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Send modal
   const [showSend, setShowSend] = useState(false);
   const [sendStep, setSendStep] = useState<"choose" | "groups">("choose");
   const [sendMode, setSendMode] = useState<"single" | "daily">("daily");
@@ -83,21 +83,18 @@ export default function HomeworkListPage() {
         body: JSON.stringify(body),
       });
       if (!res.ok) { const err = await res.json(); throw new Error(err.error || "Failed"); }
-      alert("ส่งสำเร็จ!");
-      setShowSend(false);
+      alert("ส่งสำเร็จ!"); setShowSend(false);
     } catch (e: any) { alert("ส่งไม่สำเร็จ: " + (e.message || "")); }
     finally { setSending(false); }
   };
 
-  const openSendSingle = (hw: Homework) => {
-    setSendHw(hw); setSendMode("single"); setSendStep("choose"); setShowSend(true);
-  };
-  const openSendDaily = () => {
-    setSendMode("daily"); setSendStep("choose"); setShowSend(true);
-  };
+  const openSendSingle = (hw: Homework) => { setSendHw(hw); setSendMode("single"); setSendStep("choose"); setShowSend(true); };
+  const openSendDaily = () => { setSendMode("daily"); setSendStep("choose"); setShowSend(true); };
 
   if (liffError) return <div style={{ padding: 16, color: "#E53935" }}>Error: {liffError}</div>;
   if (!isReady) return <div style={{ padding: 16, textAlign: "center", color: "#94A3B8" }}>Loading...</div>;
+
+  const grouped = groupHomeworks(homeworks);
 
   return (
     <div style={{ minHeight: "100vh", background: "#F0F4FA", paddingBottom: 80 }}>
@@ -112,7 +109,7 @@ export default function HomeworkListPage() {
             <span style={{ color: "#93C5FD", fontSize: 13 }}>{homeworks.length} รายการ</span>
             {homeworks.length > 0 && (
               <button onClick={openSendDaily} style={{ background: "rgba(255,255,255,0.2)", border: "none", borderRadius: 8, padding: "4px 10px", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 4 }}>
-                <Send size={12} /> ส่งทั้งหมด
+                <Send size={12} /> ส่ง
               </button>
             )}
           </div>
@@ -129,55 +126,75 @@ export default function HomeworkListPage() {
             <div style={{ fontSize: 13, marginTop: 4 }}>กดปุ่มด้านล่างเพื่อสร้างการบ้านใหม่</div>
           </div>
         ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            {homeworks.map((hw) => {
-              const doneCount = hw.user_homeworks.filter((u) => u.status === "done").length;
-              const totalCount = hw.user_homeworks.length || 0;
-              const isOverdue = hw.due_date && new Date(hw.due_date) < new Date();
+          grouped.map((mg) => (
+            <div key={mg.month} style={{ marginBottom: 24 }}>
+              <h2 style={{ fontSize: 16, fontWeight: 700, color: "#1E293B", marginBottom: 12, paddingLeft: 4 }}>{mg.month}</h2>
+              {mg.dateGroups.map((dg) => (
+                <div key={dg.dateKey} style={{ display: "flex", gap: 0, marginBottom: 10 }}>
+                  {/* Date column */}
+                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-start", paddingTop: 14, minWidth: 56, color: "#94A3B8" }}>
+                    <span style={{ fontSize: 11, fontWeight: 500 }}>{dg.dayName}</span>
+                    <span style={{ fontSize: 26, fontWeight: 700, color: "#1E293B", lineHeight: 1.2 }}>{dg.dateNum}</span>
+                  </div>
+                  {/* Cards column */}
+                  <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 8 }}>
+                    {dg.items.map((hw) => {
+                      const doneCount = hw.user_homeworks.filter((u) => u.status === "done").length;
+                      const totalCount = hw.user_homeworks.length || 0;
+                      const progress = totalCount > 0 ? (doneCount / totalCount) * 100 : 0;
+                      const isAllDone = doneCount === totalCount && totalCount > 0;
 
-              return (
-                <div key={hw.id}
-                  style={{ background: isOverdue ? "#FFF7ED" : "#fff", borderRadius: 14, border: `1px solid ${isOverdue ? "#FED7AA" : "#E2E8F0"}`, overflow: "hidden" }}>
-                  <div style={{ padding: "14px 16px" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                      <div style={{ fontWeight: 700, fontSize: 15, color: "#1E293B", flex: 1 }}>{hw.title}</div>
-                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                        <button onClick={(e) => { e.stopPropagation(); openSendSingle(hw); }}
-                          style={{ background: "none", border: "none", cursor: "pointer", color: "#93C5FD", padding: "2px 4px" }}>
-                          <Send size={15} />
-                        </button>
-                      </div>
-                    </div>
+                      return (
+                        <div key={hw.id} style={{ background: "#fff", borderRadius: 14, border: "1px solid #E2E8F0", overflow: "hidden" }}>
+                          <div style={{ padding: "12px 14px" }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                              <div style={{ fontWeight: 700, fontSize: 15, color: "#1E293B", flex: 1 }}>{hw.title}</div>
+                              <button onClick={() => openSendSingle(hw)} style={{ background: "none", border: "none", cursor: "pointer", color: "#93C5FD", padding: "2px 4px" }}>
+                                <Send size={15} />
+                              </button>
+                            </div>
 
-                    {/* Subject badge */}
-                    <div style={{ display: "inline-flex", alignItems: "center", gap: 4, background: "#EFF6FF", borderRadius: 6, padding: "3px 8px", marginBottom: 8 }}>
-                      <BookOpen size={11} color="#3B82F6" />
-                      <span style={{ fontSize: 11, fontWeight: 600, color: "#3B82F6" }}>{hw.subject}</span>
-                    </div>
+                            <div style={{ display: "inline-flex", alignItems: "center", gap: 4, background: "#EFF6FF", borderRadius: 6, padding: "2px 8px", marginBottom: 6 }}>
+                              <BookOpen size={10} color="#3B82F6" />
+                              <span style={{ fontSize: 11, fontWeight: 600, color: "#3B82F6" }}>{hw.subject}</span>
+                            </div>
 
-                    {hw.description && (
-                      <p style={{ fontSize: 13, color: "#64748B", margin: "0 0 8px", lineHeight: 1.5, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
-                        {hw.description}
-                      </p>
-                    )}
+                            {hw.description && (
+                              <p style={{ fontSize: 13, color: "#64748B", margin: "0 0 8px", lineHeight: 1.5, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+                                {hw.description}
+                              </p>
+                            )}
 
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: isOverdue ? "#C2410C" : "#94A3B8" }}>
-                        <CalendarDays size={11} />
-                        {hw.due_date ? `กำหนดส่ง ${formatDue(hw.due_date)}` : timeAgo(hw.created_at)}
-                      </div>
-                      {totalCount > 0 && (
-                        <span style={{ fontSize: 11, color: "#3B82F6", fontWeight: 600 }}>
-                          <CheckCircle2 size={11} style={{ display: "inline", verticalAlign: "middle", marginRight: 2 }} />
-                          อ่านแล้ว {doneCount}/{totalCount}
-                        </span>
-                      )}
-                    </div>
+                            {hw.due_date && (
+                              <div style={{ fontSize: 12, color: "#94A3B8", marginBottom: 8, display: "flex", alignItems: "center", gap: 4 }}>
+                                <Clock size={12} /> ส่งก่อน {formatTime(hw.due_date)}
+                              </div>
+                            )}
+
+                            {totalCount > 0 && (
+                              <>
+                                <div style={{ height: 5, background: "#E2E8F0", borderRadius: 3, overflow: "hidden", marginBottom: 4 }}>
+                                  <div style={{ height: "100%", width: `${progress}%`, background: isAllDone ? "#3B82F6" : "#93C5FD", borderRadius: 3, transition: "width 0.4s" }} />
+                                </div>
+                                <div style={{ textAlign: "right" }}>
+                                  {isAllDone ? (
+                                    <span style={{ fontSize: 11, fontWeight: 600, color: "#3B82F6", display: "inline-flex", alignItems: "center", gap: 3 }}>
+                                      <CheckCircle2 size={12} /> อ่านครบแล้ว!</span>
+                                  ) : (
+                                    <span style={{ fontSize: 11, color: "#60A5FA", fontWeight: 600 }}>อ่านแล้ว {doneCount}/{totalCount}</span>
+                                  )}
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
-              );
-            })}
-          </div>
+              ))}
+            </div>
+          ))
         )}
       </div>
 
