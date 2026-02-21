@@ -1,7 +1,11 @@
 import './globals.css';
-import { LiffProvider } from '@/lib/liff-provider';
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
+import dynamic from 'next/dynamic';
+
+const LiffProvider = dynamic(() => import('@/lib/liff-provider').then(mod => ({ default: mod.LiffProvider })), {
+  ssr: false,
+});
 
 const inter = Inter({ subsets: ['latin'] });
 
