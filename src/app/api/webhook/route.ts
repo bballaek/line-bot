@@ -1,15 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { validateSignature, WebhookEvent, Client, TextMessage } from '@line/bot-sdk';
+import { validateSignature, WebhookEvent, Client } from '@line/bot-sdk';
 
-const channelAccessToken = process.env.LINE_CHANNEL_ACCESS_TOKEN!;
-const channelSecret = process.env.LINE_CHANNEL_SECRET!;
-
-const client = new Client({
-  channelAccessToken: channelAccessToken,
-  channelSecret: channelSecret,
-});
+// Lazy initialization - only create client when request comes in (not at build time)
+function getLineClient() {
+  return new Client({
+    channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN!,
+    channelSecret: process.env.LINE_CHANNEL_SECRET!,
+  });
+}
 
 export async function POST(req: NextRequest) {
+  const channelSecret = process.env.LINE_CHANNEL_SECRET!;
+  const client = getLineClient();
+
   const body = await req.text();
   const signature = req.headers.get('x-line-signature') as string;
 
