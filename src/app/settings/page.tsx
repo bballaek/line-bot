@@ -130,7 +130,7 @@ export default function SettingsPage() {
         <button onClick={handleSave} disabled={saving}
           style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%", maxWidth: 400, margin: "0 auto", padding: 14, background: saving ? "#94A3B8" : "#2563EB", color: "#fff", fontSize: 15, fontWeight: 700, border: "none", borderRadius: 50, cursor: saving ? "not-allowed" : "pointer" }}
         >
-          {saving ? "กำลังบันทึก..." : saved ? "บันทึกแล้ว!" : "ตกลง"}
+          {saving ? "กำลังบันทึก..." : saved ? "บันทึกแล้ว!" : "บันทึก"}
         </button>
       </div>
     </div>
