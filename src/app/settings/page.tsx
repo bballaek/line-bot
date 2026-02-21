@@ -21,12 +21,12 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
-  if (liffError) return <div style={{ padding: 16, color: "#E53935" }}>Error: {liffError}</div>;
-  if (!isReady) return <div style={{ padding: 16, textAlign: "center", color: "#94A3B8" }}>Loading...</div>;
-
   useEffect(() => {
     if (isReady && userId) loadSettings();
   }, [isReady, userId]);
+
+  if (liffError) return <div style={{ padding: 16, color: "#E53935" }}>Error: {liffError}</div>;
+  if (!isReady) return <div style={{ padding: 16, textAlign: "center", color: "#94A3B8" }}>Loading...</div>;
 
   const loadSettings = async () => {
     try {
