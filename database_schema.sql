@@ -1,5 +1,7 @@
--- Create users table
-CREATE TABLE public.users (
+-- ===== SAFE TO RUN MULTIPLE TIMES =====
+
+-- Users table (already exists, skip if so)
+CREATE TABLE IF NOT EXISTS public.users (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   line_user_id TEXT UNIQUE NOT NULL,
   display_name TEXT,
@@ -7,38 +9,36 @@ CREATE TABLE public.users (
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
--- Create groups table
-CREATE TABLE public.groups (
+-- Groups table
+CREATE TABLE IF NOT EXISTS public.groups (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   line_group_id TEXT UNIQUE NOT NULL,
   group_name TEXT,
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
--- Create user_settings table
-CREATE TABLE public.user_settings (
+-- User settings table
+CREATE TABLE IF NOT EXISTS public.user_settings (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID REFERENCES public.users(id) ON DELETE CASCADE,
+  user_id UUID REFERENCES public.users(id) ON DELETE CASCADE UNIQUE,
   notify_time TEXT DEFAULT '19:00',
   notify_days JSONB DEFAULT '[]'::jsonb,
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
--- Create announcements table
-CREATE TABLE public.announcements (
+-- Announcements table (no group_id FK required, created_by matches code)
+CREATE TABLE IF NOT EXISTS public.announcements (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  group_id UUID REFERENCES public.groups(id) ON DELETE CASCADE,
-  author_id UUID REFERENCES public.users(id) ON DELETE CASCADE,
+  created_by UUID REFERENCES public.users(id) ON DELETE CASCADE,
   title TEXT NOT NULL,
   content TEXT,
-  is_pinned BOOLEAN DEFAULT false,
+  pinned BOOLEAN DEFAULT false,
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
--- Create homeworks table
-CREATE TABLE public.homeworks (
+-- Homeworks table (no group_id FK required, matches code)
+CREATE TABLE IF NOT EXISTS public.homeworks (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  group_id UUID REFERENCES public.groups(id) ON DELETE CASCADE,
   created_by UUID REFERENCES public.users(id) ON DELETE CASCADE,
   subject TEXT NOT NULL,
   title TEXT NOT NULL,
@@ -47,16 +47,49 @@ CREATE TABLE public.homeworks (
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
--- Create user_homeworks table
-CREATE TABLE public.user_homeworks (
+-- User homeworks tracking table
+CREATE TABLE IF NOT EXISTS public.user_homeworks (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES public.users(id) ON DELETE CASCADE,
-  homework_id UUID REFERENCES public.homeworks(id) ON DELETE CASCADE,
-  status TEXT DEFAULT 'pending', -- 'pending' or 'done'
+  homework_id UUID NOT NULL,
+  status TEXT DEFAULT 'pending',
   updated_at TIMESTAMPTZ DEFAULT now(),
   UNIQUE(user_id, homework_id)
 );
 
--- Enable Row Level Security (RLS) and Set Policies (Examples for development)
--- In a real app, you would tailor these strictly for user identity linked to LINE login,
--- but for now we'll allow anon access if configured, or authenticated via Supabase auth later.
+-- ===== DISABLE RLS FOR DEVELOPMENT =====
+ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.groups ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.user_settings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.announcements ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.homeworks ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.user_homeworks ENABLE ROW LEVEL SECURITY;
+
+-- Allow all access for anon key (development only)
+DO $$
+BEGIN
+  -- users
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'users' AND policyname = 'Allow all for anon') THEN
+    CREATE POLICY "Allow all for anon" ON public.users FOR ALL USING (true) WITH CHECK (true);
+  END IF;
+  -- groups
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'groups' AND policyname = 'Allow all for anon') THEN
+    CREATE POLICY "Allow all for anon" ON public.groups FOR ALL USING (true) WITH CHECK (true);
+  END IF;
+  -- user_settings
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'user_settings' AND policyname = 'Allow all for anon') THEN
+    CREATE POLICY "Allow all for anon" ON public.user_settings FOR ALL USING (true) WITH CHECK (true);
+  END IF;
+  -- announcements
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'announcements' AND policyname = 'Allow all for anon') THEN
+    CREATE POLICY "Allow all for anon" ON public.announcements FOR ALL USING (true) WITH CHECK (true);
+  END IF;
+  -- homeworks
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'homeworks' AND policyname = 'Allow all for anon') THEN
+    CREATE POLICY "Allow all for anon" ON public.homeworks FOR ALL USING (true) WITH CHECK (true);
+  END IF;
+  -- user_homeworks
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'user_homeworks' AND policyname = 'Allow all for anon') THEN
+    CREATE POLICY "Allow all for anon" ON public.user_homeworks FOR ALL USING (true) WITH CHECK (true);
+  END IF;
+END $$;

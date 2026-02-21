@@ -1,11 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useLiff } from "@/lib/liff-provider";
 import { supabase } from "@/lib/supabase";
-import { ArrowLeft, Upload, BookOpen, FileText, AlignLeft, CalendarDays, Link2, Paperclip, Users, User, Check, Send, Clock3, X, ChevronRight, MessageSquare } from "lucide-react";
-
-type Group = { id: string; line_group_id: string; group_name: string };
+import liff from "@line/liff";
+import { ArrowLeft, Upload, BookOpen, FileText, AlignLeft, CalendarDays, Link2, Paperclip, Users, User, Check, Clock3, X, Send } from "lucide-react";
 
 export default function AddHomeworkPage() {
   const { isReady, liffError, userId } = useLiff();
@@ -17,30 +16,13 @@ export default function AddHomeworkPage() {
   const [linkUrl, setLinkUrl] = useState("");
   const [hwType, setHwType] = useState<"single" | "group">("single");
   const [loading, setLoading] = useState(false);
-
-  // Popup state
   const [showPopup, setShowPopup] = useState(false);
-  const [popupStep, setPopupStep] = useState<"main" | "groups">("main");
-  const [groups, setGroups] = useState<Group[]>([]);
-  const [loadingGroups, setLoadingGroups] = useState(false);
-  const [sending, setSending] = useState(false);
-  const [savedHw, setSavedHw] = useState<{ title: string; subject: string; description: string; due_date: string | null } | null>(null);
+  const [savedHw, setSavedHw] = useState<any>(null);
 
   const MAX_DESC = 1000;
 
   if (liffError) return <div style={{ padding: 16, color: "#E53935" }}>Error: {liffError}</div>;
   if (!isReady) return <div style={{ padding: 16, textAlign: "center", color: "#94A3B8" }}>Loading...</div>;
-
-  const fetchGroups = async () => {
-    setLoadingGroups(true);
-    try {
-      const res = await fetch("/api/groups");
-      const data = await res.json();
-      setGroups(data.groups || []);
-    } catch {
-      setGroups([]);
-    } finally { setLoadingGroups(false); }
-  };
 
   const handleSubmit = async () => {
     if (!subject.trim() || !title.trim()) { alert("กรุณากรอกชื่อวิชาและชื่อการบ้าน"); return; }
@@ -51,64 +33,77 @@ export default function AddHomeworkPage() {
       if (!userData) throw new Error("ไม่สามารถยืนยันผู้ใช้ได้");
 
       const dueDatetime = dueDate ? new Date(`${dueDate}T${dueTime}:00`).toISOString() : null;
-      const { error } = await supabase.from("homeworks").insert({
+      const { data, error } = await supabase.from("homeworks").insert({
         created_by: userData.id, subject, title, description, due_date: dueDatetime,
-      });
+      }).select("id").single();
       if (error) throw error;
 
-      setSavedHw({ title, subject, description, due_date: dueDatetime });
+      setSavedHw({ id: data?.id, title, subject, description, due_date: dueDatetime });
       setShowPopup(true);
-      setPopupStep("main");
-    } catch (err: any) {
-      console.error(err);
-      alert(err.message || "เกิดข้อผิดพลาดในการบันทึก");
-    } finally { setLoading(false); }
+    } catch (err: any) { console.error(err); alert(err.message || "เกิดข้อผิดพลาด"); }
+    finally { setLoading(false); }
   };
 
-  const sendToTarget = async (targetId: string) => {
+  // Use LIFF shareTargetPicker
+  const handleShare = async () => {
     if (!savedHw) return;
-    setSending(true);
     try {
-      const res = await fetch("/api/send-homework", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type: "single", targetId, homework: savedHw }),
-      });
-      if (!res.ok) throw new Error("Failed to send");
-      resetForm();
-      window.location.href = "/homework-list";
-    } catch (err: any) {
-      alert("ส่งไม่สำเร็จ: " + (err.message || ""));
-    } finally { setSending(false); }
+      if (!liff.isApiAvailable('shareTargetPicker')) {
+        alert('กรุณาเปิดใน LINE app เพื่อใช้ฟีเจอร์นี้');
+        return;
+      }
+      const dueText = savedHw.due_date
+        ? new Date(savedHw.due_date).toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+        : 'ไม่ระบุ';
+
+      const flexMsg = {
+        type: 'flex' as const,
+        altText: `📋 การบ้าน: ${savedHw.title}`,
+        contents: {
+          type: 'bubble',
+          size: 'kilo',
+          header: {
+            type: 'box', layout: 'vertical', backgroundColor: '#2563EB', paddingAll: '16px',
+            contents: [
+              { type: 'text', text: 'การบ้านใหม่', color: '#DBEAFE', size: 'xs', weight: 'bold' },
+              { type: 'text', text: savedHw.title, color: '#ffffff', size: 'lg', weight: 'bold', wrap: true },
+            ],
+          },
+          body: {
+            type: 'box', layout: 'vertical', spacing: 'md', paddingAll: '16px',
+            contents: [
+              { type: 'box', layout: 'horizontal', spacing: 'sm', contents: [
+                { type: 'text', text: 'วิชา', size: 'sm', color: '#94A3B8', flex: 2 },
+                { type: 'text', text: savedHw.subject, size: 'sm', color: '#1E293B', flex: 5, weight: 'bold' },
+              ]},
+              { type: 'box', layout: 'horizontal', spacing: 'sm', contents: [
+                { type: 'text', text: 'กำหนดส่ง', size: 'sm', color: '#94A3B8', flex: 2 },
+                { type: 'text', text: dueText, size: 'sm', color: '#1E293B', flex: 5, wrap: true },
+              ]},
+              ...(savedHw.description ? [{ type: 'separator' as const, margin: 'md' as const }, {
+                type: 'text' as const, text: savedHw.description.length > 150 ? savedHw.description.substring(0, 150) + '...' : savedHw.description,
+                size: 'sm' as const, color: '#64748B', wrap: true, marginTop: 'md' as const,
+              }] : []),
+            ],
+          },
+        },
+      };
+      const result = await liff.shareTargetPicker([flexMsg as any]);
+      if (result) {
+        resetForm();
+        window.location.href = "/homework-list";
+      }
+    } catch (e: any) {
+      console.error('Share error:', e);
+      alert('ส่งไม่สำเร็จ: ' + (e.message || ''));
+    }
   };
 
-  const handleSendSelf = () => {
-    if (userId) sendToTarget(userId);
-  };
+  const handleLater = () => { resetForm(); window.location.href = "/homework-list"; };
+  const resetForm = () => { setShowPopup(false); setSubject(""); setTitle(""); setDescription(""); setDueDate(""); setDueTime("00:00"); setLinkUrl(""); setSavedHw(null); };
 
-  const handleSendGroup = async () => {
-    setPopupStep("groups");
-    await fetchGroups();
-  };
-
-  const handleLater = () => {
-    resetForm();
-    window.location.href = "/homework-list";
-  };
-
-  const resetForm = () => {
-    setShowPopup(false);
-    setSubject(""); setTitle(""); setDescription(""); setDueDate(""); setDueTime("00:00"); setLinkUrl("");
-    setSavedHw(null);
-  };
-
-  const inputStyle: React.CSSProperties = {
-    width: "100%", padding: "12px 14px", border: "1px solid #E2E8F0", borderRadius: 10,
-    fontSize: 15, background: "#fff", outline: "none", boxSizing: "border-box",
-  };
-  const labelStyle: React.CSSProperties = {
-    display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 600, color: "#475569", marginBottom: 6,
-  };
+  const inputStyle: React.CSSProperties = { width: "100%", padding: "12px 14px", border: "1px solid #E2E8F0", borderRadius: 10, fontSize: 15, background: "#fff", outline: "none", boxSizing: "border-box" };
+  const labelStyle: React.CSSProperties = { display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 600, color: "#475569", marginBottom: 6 };
 
   return (
     <div style={{ minHeight: "100vh", background: "#F0F4FA", display: "flex", flexDirection: "column", position: "relative" }}>
@@ -122,7 +117,6 @@ export default function AddHomeworkPage() {
 
       {/* Form */}
       <div style={{ padding: "20px 16px", flex: 1, paddingBottom: 100 }}>
-        {/* Description */}
         <div style={{ marginBottom: 16 }}>
           <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
             <label style={{ ...labelStyle, marginBottom: 0 }}><AlignLeft size={14} /> รายละเอียดการบ้าน</label>
@@ -133,19 +127,16 @@ export default function AddHomeworkPage() {
             rows={5} style={{ ...inputStyle, resize: "none", lineHeight: 1.6, fontSize: 14 }} />
         </div>
 
-        {/* Subject */}
         <div style={{ marginBottom: 16 }}>
           <label style={labelStyle}><BookOpen size={14} /> <span style={{ color: "#E53935" }}>*</span> ชื่อวิชา</label>
           <input type="text" placeholder="เช่น ศิลปะ, คณิตศาสตร์" value={subject} onChange={(e) => setSubject(e.target.value)} style={inputStyle} />
         </div>
 
-        {/* Title */}
         <div style={{ marginBottom: 16 }}>
           <label style={labelStyle}><FileText size={14} /> <span style={{ color: "#E53935" }}>*</span> ชื่อการบ้าน</label>
           <input type="text" placeholder="ระบายสีน้ำให้สัตว์โลกแสนน่ารัก" value={title} onChange={(e) => setTitle(e.target.value)} style={inputStyle} />
         </div>
 
-        {/* Due Date + Time */}
         <div style={{ marginBottom: 16 }}>
           <label style={labelStyle}><CalendarDays size={14} /> <span style={{ color: "#E53935" }}>*</span> วันกำหนดส่ง</label>
           <div style={{ display: "flex", gap: 8 }}>
@@ -157,13 +148,11 @@ export default function AddHomeworkPage() {
           </div>
         </div>
 
-        {/* Link URL */}
         <div style={{ marginBottom: 16 }}>
           <label style={labelStyle}><Link2 size={14} /> ลิงก์แนบ <span style={{ fontWeight: 400, color: "#94A3B8" }}>(ถ้ามี)</span></label>
           <input type="url" placeholder="ใส่ได้เฉพาะลิงก์ URL ครับ" value={linkUrl} onChange={(e) => setLinkUrl(e.target.value)} style={inputStyle} />
         </div>
 
-        {/* File Upload */}
         <div style={{ marginBottom: 16 }}>
           <label style={labelStyle}><Paperclip size={14} /> เอกสารแนบ</label>
           <div style={{ border: "1px dashed #CBD5E1", borderRadius: 12, padding: "24px 20px", textAlign: "center", background: "#FAFBFC" }}>
@@ -173,7 +162,6 @@ export default function AddHomeworkPage() {
           </div>
         </div>
 
-        {/* Homework Type */}
         <div style={{ marginBottom: 16 }}>
           <label style={labelStyle}><span style={{ color: "#E53935" }}>*</span> ประเภทการบ้าน</label>
           <div style={{ display: "flex", gap: 24 }}>
@@ -198,79 +186,29 @@ export default function AddHomeworkPage() {
         </button>
       </div>
 
-      {/* Popup Modal */}
+      {/* Popup */}
       {showPopup && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
           <div style={{ background: "#fff", borderRadius: 20, padding: "28px 24px", maxWidth: 360, width: "100%", position: "relative" }}>
-            <button onClick={() => { setShowPopup(false); resetForm(); window.location.href = "/homework-list"; }} style={{ position: "absolute", top: 12, right: 12, background: "none", border: "none", cursor: "pointer", color: "#94A3B8" }}>
-              <X size={20} />
+            <button onClick={() => { resetForm(); window.location.href = "/homework-list"; }} style={{ position: "absolute", top: 12, right: 12, background: "none", border: "none", cursor: "pointer", color: "#94A3B8" }}><X size={20} /></button>
+
+            <div style={{ textAlign: "center", marginBottom: 16 }}>
+              <div style={{ width: 70, height: 70, borderRadius: "50%", background: "#DBEAFE", margin: "0 auto 12px", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <Check size={32} color="#2563EB" />
+              </div>
+              <h3 style={{ fontSize: 17, fontWeight: 700, color: "#1E293B", marginBottom: 4 }}>บันทึกเรียบร้อย!</h3>
+              <p style={{ fontSize: 13, color: "#94A3B8", lineHeight: 1.6, margin: 0 }}>ต้องการส่งเข้าแชทเลยไหมครับ?</p>
+            </div>
+
+            <button onClick={handleShare}
+              style={{ width: "100%", padding: "12px 16px", background: "#2563EB", color: "#fff", border: "none", borderRadius: 12, fontSize: 14, fontWeight: 600, cursor: "pointer", marginBottom: 8, display: "flex", alignItems: "center", gap: 10, justifyContent: "center" }}>
+              <Send size={18} /> เลือกแชทที่ต้องการส่ง
             </button>
 
-            {popupStep === "main" ? (
-              <>
-                {/* Success icon */}
-                <div style={{ textAlign: "center", marginBottom: 16 }}>
-                  <div style={{ width: 70, height: 70, borderRadius: "50%", background: "#DBEAFE", margin: "0 auto 12px", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                    <Check size={32} color="#2563EB" />
-                  </div>
-                  <h3 style={{ fontSize: 17, fontWeight: 700, color: "#1E293B", marginBottom: 4 }}>บันทึกเรียบร้อย!</h3>
-                  <p style={{ fontSize: 13, color: "#94A3B8", lineHeight: 1.6, margin: 0 }}>
-                    ต้องการส่งเข้าแชทเลยไหมครับ?
-                  </p>
-                </div>
-
-                {/* Send to self */}
-                <button onClick={handleSendSelf} disabled={sending}
-                  style={{ width: "100%", padding: "12px 16px", background: "#2563EB", color: "#fff", border: "none", borderRadius: 12, fontSize: 14, fontWeight: 600, cursor: "pointer", marginBottom: 8, display: "flex", alignItems: "center", gap: 10 }}>
-                  <MessageSquare size={18} />
-                  <span>ส่งเข้าแชทตัวเอง</span>
-                </button>
-
-                {/* Send to group */}
-                <button onClick={handleSendGroup} disabled={sending}
-                  style={{ width: "100%", padding: "12px 16px", background: "#fff", color: "#1E293B", border: "1px solid #E2E8F0", borderRadius: 12, fontSize: 14, fontWeight: 600, cursor: "pointer", marginBottom: 8, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                  <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <Users size={18} color="#2563EB" />
-                    ส่งเข้าแชทกลุ่ม
-                  </span>
-                  <ChevronRight size={16} color="#94A3B8" />
-                </button>
-
-                {/* Later */}
-                <button onClick={handleLater}
-                  style={{ width: "100%", padding: "12px 16px", background: "#F8FAFC", color: "#64748B", border: "1px solid #E2E8F0", borderRadius: 12, fontSize: 14, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 10 }}>
-                  <Clock3 size={18} />
-                  <span>ประกาศภายหลัง</span>
-                </button>
-              </>
-            ) : (
-              /* Group selection */
-              <>
-                <button onClick={() => setPopupStep("main")} style={{ background: "none", border: "none", cursor: "pointer", color: "#475569", display: "flex", alignItems: "center", gap: 4, marginBottom: 12, padding: 0, fontSize: 13 }}>
-                  <ArrowLeft size={16} /> กลับ
-                </button>
-                <h3 style={{ fontSize: 16, fontWeight: 700, color: "#1E293B", marginBottom: 12 }}>เลือกกลุ่มที่ต้องการส่ง</h3>
-
-                {loadingGroups ? (
-                  <div style={{ textAlign: "center", padding: "20px 0", color: "#94A3B8" }}>กำลังโหลด...</div>
-                ) : groups.length === 0 ? (
-                  <div style={{ textAlign: "center", padding: "20px 0", color: "#94A3B8", fontSize: 13 }}>
-                    ยังไม่มีกลุ่ม กรุณาเพิ่ม Bot เข้ากลุ่ม LINE ก่อนครับ
-                  </div>
-                ) : (
-                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                    {groups.map((g) => (
-                      <button key={g.id} onClick={() => sendToTarget(g.line_group_id)} disabled={sending}
-                        style={{ width: "100%", padding: "12px 14px", background: "#F8FAFC", border: "1px solid #E2E8F0", borderRadius: 10, fontSize: 14, color: "#1E293B", cursor: "pointer", textAlign: "left", display: "flex", alignItems: "center", gap: 10, fontWeight: 500 }}>
-                        <Users size={16} color="#2563EB" />
-                        {g.group_name}
-                        {sending && <span style={{ fontSize: 12, color: "#94A3B8", marginLeft: "auto" }}>กำลังส่ง...</span>}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </>
-            )}
+            <button onClick={handleLater}
+              style={{ width: "100%", padding: "12px 16px", background: "#F8FAFC", color: "#64748B", border: "1px solid #E2E8F0", borderRadius: 12, fontSize: 14, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 10, justifyContent: "center" }}>
+              <Clock3 size={18} /> ประกาศภายหลัง
+            </button>
           </div>
         </div>
       )}

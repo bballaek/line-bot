@@ -3,14 +3,14 @@
 import { useEffect, useState } from "react";
 import { useLiff } from "@/lib/liff-provider";
 import { supabase } from "@/lib/supabase";
-import { ClipboardList, Plus, Clock, CheckCircle2, Send, X, ArrowLeft, Users, MessageSquare, FileText } from "lucide-react";
+import { ClipboardList, Plus, Clock, CheckCircle2, Send, X, FileText } from "lucide-react";
+import liff from "@line/liff";
 
 type Homework = {
   id: string; subject: string; title: string; description: string;
   due_date: string | null; created_at: string;
   user_homeworks: { status: string }[];
 };
-type Group = { id: string; line_group_id: string; group_name: string };
 
 const THAI_MONTHS = ["มกราคม","กุมภาพันธ์","มีนาคม","เมษายน","พฤษภาคม","มิถุนายน","กรกฎาคม","สิงหาคม","กันยายน","ตุลาคม","พฤศจิกายน","ธันวาคม"];
 const THAI_DAYS = ["อาทิตย์","จันทร์","อังคาร","พุธ","พฤหัสบดี","ศุกร์","เสาร์"];
@@ -18,6 +18,7 @@ const toBE = (y: number) => y + 543;
 const getMonthKey = (d: Date) => `${THAI_MONTHS[d.getMonth()]} ${toBE(d.getFullYear())}`;
 const getDateKey = (d: Date) => `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
 const formatTime = (s: string) => { const d = new Date(s); return `${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")} น.`; };
+const formatDateShort = (s: string) => { const d = new Date(s); return `${d.getDate()}/${d.getMonth()+1}/${toBE(d.getFullYear()) % 100}`; };
 
 type MonthGroup = { month: string; dateGroups: { dateKey: string; dayName: string; dateNum: number; items: Homework[] }[] };
 
@@ -37,19 +38,83 @@ function groupHomeworks(homeworks: Homework[]): MonthGroup[] {
   return r;
 }
 
+// Build Flex Message for shareTargetPicker
+function buildHomeworkFlexForShare(hw: Homework) {
+  const dueText = hw.due_date
+    ? new Date(hw.due_date).toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+    : 'ไม่ระบุ';
+
+  return {
+    type: 'flex' as const,
+    altText: `📋 การบ้าน: ${hw.title}`,
+    contents: {
+      type: 'bubble',
+      size: 'kilo',
+      header: {
+        type: 'box', layout: 'vertical', backgroundColor: '#2563EB', paddingAll: '16px',
+        contents: [
+          { type: 'text', text: 'การบ้านใหม่', color: '#DBEAFE', size: 'xs', weight: 'bold' },
+          { type: 'text', text: hw.title, color: '#ffffff', size: 'lg', weight: 'bold', wrap: true },
+        ],
+      },
+      body: {
+        type: 'box', layout: 'vertical', spacing: 'md', paddingAll: '16px',
+        contents: [
+          { type: 'box', layout: 'horizontal', spacing: 'sm', contents: [
+            { type: 'text', text: 'วิชา', size: 'sm', color: '#94A3B8', flex: 2 },
+            { type: 'text', text: hw.subject, size: 'sm', color: '#1E293B', flex: 5, weight: 'bold' },
+          ]},
+          { type: 'box', layout: 'horizontal', spacing: 'sm', contents: [
+            { type: 'text', text: 'กำหนดส่ง', size: 'sm', color: '#94A3B8', flex: 2 },
+            { type: 'text', text: dueText, size: 'sm', color: '#1E293B', flex: 5, wrap: true },
+          ]},
+          ...(hw.description ? [{ type: 'separator' as const, margin: 'md' as const }, {
+            type: 'text' as const, text: hw.description.length > 150 ? hw.description.substring(0, 150) + '...' : hw.description,
+            size: 'sm' as const, color: '#64748B', wrap: true, marginTop: 'md' as const,
+          }] : []),
+        ],
+      },
+    },
+  };
+}
+
+function buildDailyReportFlexForShare(homeworks: Homework[]) {
+  const today = new Date().toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' });
+  const items = homeworks.slice(0, 8).map((hw) => ({
+    type: 'box' as const, layout: 'horizontal' as const, spacing: 'sm' as const, paddingBottom: '8px',
+    contents: [
+      { type: 'text' as const, text: '•', size: 'sm' as const, color: '#2563EB', flex: 1 },
+      { type: 'box' as const, layout: 'vertical' as const, flex: 9, contents: [
+        { type: 'text' as const, text: hw.title, size: 'sm' as const, color: '#1E293B', weight: 'bold' as const, wrap: true },
+        { type: 'text' as const, text: `วิชา ${hw.subject}${hw.due_date ? ' • กำหนด ' + formatDateShort(hw.due_date) : ''}`, size: 'xs' as const, color: '#94A3B8' },
+      ]},
+    ],
+  }));
+
+  return {
+    type: 'flex' as const,
+    altText: `📋 รายงานการบ้านประจำวัน ${today}`,
+    contents: {
+      type: 'bubble',
+      size: 'kilo',
+      header: {
+        type: 'box', layout: 'vertical', backgroundColor: '#2563EB', paddingAll: '16px',
+        contents: [
+          { type: 'text', text: 'รายงานการบ้านประจำวัน', color: '#DBEAFE', size: 'xs', weight: 'bold' },
+          { type: 'text', text: today, color: '#ffffff', size: 'md', weight: 'bold' },
+          { type: 'text', text: `ทั้งหมด ${homeworks.length} รายการ`, color: '#93C5FD', size: 'xs', marginTop: '4px' },
+        ],
+      },
+      body: { type: 'box', layout: 'vertical', paddingAll: '16px', contents: items },
+    },
+  };
+}
+
 export default function HomeworkListPage() {
   const { isReady, liffError, userId } = useLiff();
   const [homeworks, setHomeworks] = useState<Homework[]>([]);
   const [loading, setLoading] = useState(true);
-
-  // Send modal
   const [showSend, setShowSend] = useState(false);
-  const [sendMode, setSendMode] = useState<"pick" | "single" | "daily" | "groups">("pick");
-  const [selectedHw, setSelectedHw] = useState<Homework | null>(null);
-  const [groups, setGroups] = useState<Group[]>([]);
-  const [loadingGroups, setLoadingGroups] = useState(false);
-  const [sending, setSending] = useState(false);
-  const [sendTarget, setSendTarget] = useState<{ type: "single" | "daily"; hw?: Homework } | null>(null);
 
   useEffect(() => { if (isReady && userId) fetchHomeworks(); }, [isReady, userId]);
 
@@ -67,41 +132,34 @@ export default function HomeworkListPage() {
     finally { setLoading(false); }
   };
 
-  const fetchGroups = async () => {
-    setLoadingGroups(true);
-    try { const res = await fetch("/api/groups"); const data = await res.json(); setGroups(data.groups || []); }
-    catch { setGroups([]); }
-    finally { setLoadingGroups(false); }
-  };
-
-  // Open send modal for a specific homework
-  const openSendSingle = (hw: Homework) => {
-    setSelectedHw(hw);
-    setSendTarget({ type: "single", hw });
-    setSendMode("single");
-    setShowSend(true);
-    fetchGroups();
-  };
-
-  // Open send modal with pick mode (individual vs daily)
-  const openSendPick = () => {
-    setSendMode("pick");
-    setShowSend(true);
-  };
-
-  const handleSendToTarget = async (targetId: string) => {
-    setSending(true);
+  // Use LIFF shareTargetPicker to send Flex Message
+  const shareHomework = async (hw: Homework) => {
     try {
-      const body = sendTarget?.type === "daily"
-        ? { type: "daily", targetId, homeworks: homeworks.map(h => ({ title: h.title, subject: h.subject, due_date: h.due_date })) }
-        : { type: "single", targetId, homework: { title: sendTarget?.hw?.title, subject: sendTarget?.hw?.subject, description: sendTarget?.hw?.description, due_date: sendTarget?.hw?.due_date } };
+      if (!liff.isApiAvailable('shareTargetPicker')) {
+        alert('กรุณาเปิดใน LINE app เพื่อใช้ฟีเจอร์นี้');
+        return;
+      }
+      const msg = buildHomeworkFlexForShare(hw);
+      await liff.shareTargetPicker([msg as any]);
+    } catch (e: any) {
+      console.error('Share error:', e);
+      alert('ส่งไม่สำเร็จ: ' + (e.message || ''));
+    }
+  };
 
-      const res = await fetch("/api/send-homework", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-      if (!res.ok) throw new Error("Failed");
-      alert("ส่งเรียบร้อยแล้ว!");
+  const shareDailyReport = async () => {
+    try {
+      if (!liff.isApiAvailable('shareTargetPicker')) {
+        alert('กรุณาเปิดใน LINE app เพื่อใช้ฟีเจอร์นี้');
+        return;
+      }
+      const msg = buildDailyReportFlexForShare(homeworks);
+      await liff.shareTargetPicker([msg as any]);
       setShowSend(false);
-    } catch (err: any) { alert("ส่งไม่สำเร็จ: " + (err.message || "")); }
-    finally { setSending(false); }
+    } catch (e: any) {
+      console.error('Share error:', e);
+      alert('ส่งไม่สำเร็จ: ' + (e.message || ''));
+    }
   };
 
   const grouped = groupHomeworks(homeworks);
@@ -118,7 +176,7 @@ export default function HomeworkListPage() {
           <span style={{ color: "#fff", fontWeight: 700, fontSize: 17 }}>การบ้านทั้งหมด</span>
         </div>
         {homeworks.length > 0 && (
-          <button onClick={openSendPick} style={{ background: "rgba(255,255,255,0.2)", border: "none", borderRadius: 8, padding: "6px 12px", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>
+          <button onClick={() => setShowSend(true)} style={{ background: "rgba(255,255,255,0.2)", border: "none", borderRadius: 8, padding: "6px 12px", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>
             <Send size={14} /> ส่ง
           </button>
         )}
@@ -153,7 +211,7 @@ export default function HomeworkListPage() {
                         <div key={hw.id} style={{ background: "#fff", borderRadius: 12, border: "1px solid #E2E8F0", padding: "12px 14px" }}>
                           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                             <div style={{ fontWeight: 700, fontSize: 15, color: "#1E293B", marginBottom: 3, flex: 1 }}>{hw.title}</div>
-                            <button onClick={() => openSendSingle(hw)} style={{ background: "none", border: "none", cursor: "pointer", color: "#93C5FD", padding: "2px 4px" }}>
+                            <button onClick={() => shareHomework(hw)} style={{ background: "none", border: "none", cursor: "pointer", color: "#93C5FD", padding: "2px 4px" }}>
                               <Send size={15} />
                             </button>
                           </div>
@@ -197,59 +255,23 @@ export default function HomeworkListPage() {
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
           <div style={{ background: "#fff", borderRadius: 20, padding: "28px 24px", maxWidth: 360, width: "100%", position: "relative" }}>
             <button onClick={() => setShowSend(false)} style={{ position: "absolute", top: 12, right: 12, background: "none", border: "none", cursor: "pointer", color: "#94A3B8" }}><X size={20} /></button>
+            <h3 style={{ fontSize: 16, fontWeight: 700, color: "#1E293B", marginBottom: 4, textAlign: "center" }}>ส่งการบ้าน</h3>
+            <p style={{ fontSize: 13, color: "#94A3B8", textAlign: "center", marginBottom: 16 }}>เลือกรูปแบบการส่ง</p>
 
-            {sendMode === "pick" ? (
-              <>
-                <h3 style={{ fontSize: 16, fontWeight: 700, color: "#1E293B", marginBottom: 4, textAlign: "center" }}>ส่งการบ้าน</h3>
-                <p style={{ fontSize: 13, color: "#94A3B8", textAlign: "center", marginBottom: 16 }}>เลือกรูปแบบการส่ง</p>
+            <button onClick={shareDailyReport}
+              style={{ width: "100%", padding: "12px 16px", background: "#2563EB", color: "#fff", border: "none", borderRadius: 12, fontSize: 14, fontWeight: 600, cursor: "pointer", marginBottom: 10, display: "flex", alignItems: "center", gap: 10 }}>
+              <ClipboardList size={18} /> ส่งรายงานประจำวัน
+            </button>
 
-                <button onClick={() => { setSendMode("daily"); setSendTarget({ type: "daily" }); fetchGroups(); }}
-                  style={{ width: "100%", padding: "12px 16px", background: "#2563EB", color: "#fff", border: "none", borderRadius: 12, fontSize: 14, fontWeight: 600, cursor: "pointer", marginBottom: 8, display: "flex", alignItems: "center", gap: 10 }}>
-                  <ClipboardList size={18} /> ส่งรายงานการบ้านทั้งหมดประจำวัน
+            <p style={{ fontSize: 12, color: "#94A3B8", textAlign: "center", marginBottom: 8 }}>หรือเลือกส่งเฉพาะงาน</p>
+            <div style={{ maxHeight: 200, overflow: "auto", display: "flex", flexDirection: "column", gap: 6 }}>
+              {homeworks.map((hw) => (
+                <button key={hw.id} onClick={() => { setShowSend(false); shareHomework(hw); }}
+                  style={{ width: "100%", padding: "10px 14px", background: "#F8FAFC", border: "1px solid #E2E8F0", borderRadius: 10, fontSize: 13, color: "#1E293B", cursor: "pointer", textAlign: "left", display: "flex", alignItems: "center", gap: 8 }}>
+                  <FileText size={14} color="#2563EB" /> {hw.title}
                 </button>
-
-                <p style={{ fontSize: 12, color: "#94A3B8", textAlign: "center", marginBottom: 8 }}>หรือเลือกส่งเฉพาะงาน</p>
-                <div style={{ maxHeight: 200, overflow: "auto", display: "flex", flexDirection: "column", gap: 6 }}>
-                  {homeworks.map((hw) => (
-                    <button key={hw.id} onClick={() => { openSendSingle(hw); }}
-                      style={{ width: "100%", padding: "10px 14px", background: "#F8FAFC", border: "1px solid #E2E8F0", borderRadius: 10, fontSize: 13, color: "#1E293B", cursor: "pointer", textAlign: "left", display: "flex", alignItems: "center", gap: 8 }}>
-                      <FileText size={14} color="#2563EB" /> {hw.title}
-                    </button>
-                  ))}
-                </div>
-              </>
-            ) : (sendMode === "single" || sendMode === "daily") ? (
-              <>
-                <button onClick={() => setSendMode("pick")} style={{ background: "none", border: "none", cursor: "pointer", color: "#475569", display: "flex", alignItems: "center", gap: 4, marginBottom: 12, padding: 0, fontSize: 13 }}>
-                  <ArrowLeft size={16} /> กลับ
-                </button>
-                <h3 style={{ fontSize: 16, fontWeight: 700, color: "#1E293B", marginBottom: 4 }}>
-                  {sendMode === "daily" ? "ส่งรายงานประจำวัน" : `ส่ง: ${sendTarget?.hw?.title}`}
-                </h3>
-                <p style={{ fontSize: 13, color: "#94A3B8", marginBottom: 12 }}>เลือกช่องทางส่ง</p>
-
-                <button onClick={() => userId && handleSendToTarget(userId)} disabled={sending}
-                  style={{ width: "100%", padding: "12px 16px", background: "#2563EB", color: "#fff", border: "none", borderRadius: 12, fontSize: 14, fontWeight: 600, cursor: "pointer", marginBottom: 8, display: "flex", alignItems: "center", gap: 10 }}>
-                  <MessageSquare size={16} /> ส่งเข้าแชทตัวเอง
-                </button>
-
-                <p style={{ fontSize: 12, color: "#94A3B8", marginBottom: 8 }}>หรือเลือกกลุ่ม</p>
-                {loadingGroups ? (
-                  <div style={{ textAlign: "center", padding: "12px 0", color: "#94A3B8" }}>กำลังโหลด...</div>
-                ) : groups.length === 0 ? (
-                  <div style={{ textAlign: "center", padding: "12px 0", color: "#94A3B8", fontSize: 13 }}>ยังไม่มีกลุ่ม กรุณาเพิ่ม Bot เข้ากลุ่ม LINE ก่อน</div>
-                ) : (
-                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                    {groups.map((g) => (
-                      <button key={g.id} onClick={() => handleSendToTarget(g.line_group_id)} disabled={sending}
-                        style={{ width: "100%", padding: "10px 14px", background: "#F8FAFC", border: "1px solid #E2E8F0", borderRadius: 10, fontSize: 14, color: "#1E293B", cursor: "pointer", textAlign: "left", display: "flex", alignItems: "center", gap: 10, fontWeight: 500 }}>
-                        <Users size={16} color="#2563EB" /> {g.group_name}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </>
-            ) : null}
+              ))}
+            </div>
           </div>
         </div>
       )}
