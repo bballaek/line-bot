@@ -104,6 +104,37 @@ export async function POST(req: NextRequest) {
             };
             await client.replyMessage(event.replyToken, flexMessage);
           }
+
+          if (text === '#ประกาศ') {
+            const liffUrl = `https://liff.line.me/${process.env.NEXT_PUBLIC_LIFF_ID}`;
+            const flexMessage: any = {
+              type: 'flex',
+              altText: 'เมนูประกาศ',
+              contents: {
+                type: 'bubble',
+                size: 'kilo',
+                header: {
+                  type: 'box', layout: 'vertical', backgroundColor: '#2563EB', paddingAll: '16px',
+                  contents: [
+                    { type: 'text', text: '📢 ระบบประกาศ', color: '#ffffff', size: 'lg', weight: 'bold' },
+                    { type: 'text', text: 'สร้างหรือดูประกาศได้เลย', color: '#93C5FD', size: 'sm', marginTop: '4px' },
+                  ],
+                },
+                body: {
+                  type: 'box', layout: 'vertical', spacing: 'sm', paddingAll: '12px',
+                  contents: [
+                    { type: 'button', style: 'primary', height: 'sm', color: '#2563EB',
+                      action: { type: 'uri', label: 'สร้างประกาศใหม่', uri: `${liffUrl}/announcements/create` }
+                    },
+                    { type: 'button', style: 'secondary', height: 'sm',
+                      action: { type: 'uri', label: 'ดูประกาศทั้งหมด', uri: `${liffUrl}/announcements` }
+                    },
+                  ],
+                },
+              },
+            };
+            await client.replyMessage(event.replyToken, flexMessage);
+          }
         }
       })
     );
