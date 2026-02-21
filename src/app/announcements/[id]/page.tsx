@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { useLiff } from "@/lib/liff-provider";
 import { supabase } from "@/lib/supabase";
-import { ArrowLeft, CalendarDays, FileEdit, AlertCircle, Bell, Check, Users } from "lucide-react";
+import { ArrowLeft, CalendarDays, FileEdit, AlertCircle, Bell, Check, Users, Megaphone } from "lucide-react";
 
 type Announcement = {
   id: string; title: string; content: string; pinned: boolean; created_at: string;
