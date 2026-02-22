@@ -113,6 +113,128 @@ export async function POST(req: NextRequest) {
           await saveGroup(event.source.groupId);
         }
 
+        // ===== #ส่งการบ้านยัง - Greeting + Carousel Menu =====
+        if (text === '#ส่งการบ้านยัง') {
+          await client.replyMessage({
+            replyToken: event.replyToken,
+            messages: [
+              {
+                type: 'text',
+                text: 'มาแล้วครับ! 🎒\nวันนี้คุณครู คุณพ่อคุณแม่ หรือน้องๆ อยากจะทำอะไรครับ เลือกหัวข้อเลยนะ',
+              },
+              {
+                type: 'flex',
+                altText: 'เมนูหลัก Song-Yang',
+                contents: {
+                  type: 'carousel',
+                  contents: [
+                    {
+                      type: 'bubble', size: 'micro',
+                      body: {
+                        type: 'box', layout: 'vertical', backgroundColor: '#FFF2C8', paddingAll: '15px', cornerRadius: '12px',
+                        contents: [
+                          { type: 'image', url: 'https://cdn-icons-png.flaticon.com/512/3403/3403504.png', size: '70px', aspectMode: 'fit', margin: 'md' },
+                          { type: 'text', text: 'ดูการบ้าน', weight: 'bold', color: '#4834d4', size: 'md', align: 'center', margin: 'lg' },
+                          { type: 'text', text: 'เช็คงานวันนี้', size: 'xs', color: '#8c7b75', align: 'center', margin: 'sm' },
+                        ],
+                      },
+                      action: { type: 'message', label: 'ดูการบ้าน', text: 'ดูการบ้าน' },
+                    },
+                    {
+                      type: 'bubble', size: 'micro',
+                      body: {
+                        type: 'box', layout: 'vertical', backgroundColor: '#E3F2FD', paddingAll: '15px', cornerRadius: '12px',
+                        contents: [
+                          { type: 'image', url: 'https://cdn-icons-png.flaticon.com/512/8759/8759534.png', size: '70px', aspectMode: 'fit', margin: 'md' },
+                          { type: 'text', text: 'ประกาศ', weight: 'bold', color: '#1565c0', size: 'md', align: 'center', margin: 'lg' },
+                          { type: 'text', text: 'ข่าวสารห้องเรียน', size: 'xs', color: '#8c7b75', align: 'center', margin: 'sm' },
+                        ],
+                      },
+                      action: { type: 'message', label: 'ดูประกาศ', text: 'ดูประกาศ' },
+                    },
+                    {
+                      type: 'bubble', size: 'micro',
+                      body: {
+                        type: 'box', layout: 'vertical', backgroundColor: '#FFEBEE', paddingAll: '15px', cornerRadius: '12px',
+                        contents: [
+                          { type: 'image', url: 'https://cdn-icons-png.flaticon.com/512/9042/9042241.png', size: '70px', aspectMode: 'fit', margin: 'md' },
+                          { type: 'text', text: 'งานค้างส่ง', weight: 'bold', color: '#c0392b', size: 'md', align: 'center', margin: 'lg' },
+                          { type: 'text', text: 'เช็คงานที่ดองไว้', size: 'xs', color: '#8c7b75', align: 'center', margin: 'sm' },
+                        ],
+                      },
+                      action: { type: 'message', label: 'เช็คงานค้าง', text: 'เช็คงานค้าง' },
+                    },
+                  ],
+                },
+              },
+            ],
+          });
+        }
+
+        // ===== Quick actions from carousel =====
+        if (text === 'ดูการบ้าน') {
+          await client.replyMessage({
+            replyToken: event.replyToken,
+            messages: [{
+              type: 'flex', altText: 'ดูการบ้าน',
+              contents: {
+                type: 'bubble', size: 'kilo',
+                body: {
+                  type: 'box', layout: 'vertical', spacing: 'sm', paddingAll: '16px',
+                  contents: [
+                    { type: 'text', text: '📋 ดูการบ้านทั้งหมด', weight: 'bold', size: 'md', color: '#5e4034' },
+                    { type: 'text', text: 'กดปุ่มด้านล่างเพื่อเปิดหน้าการบ้าน', size: 'xs', color: '#8c7b75', margin: 'sm' },
+                    { type: 'button', style: 'primary', height: 'sm', color: '#ffb74d', margin: 'lg',
+                      action: { type: 'uri', label: 'เปิดการบ้าน', uri: `${liffUrl}/homework-list` } },
+                  ],
+                },
+              },
+            }],
+          });
+        }
+
+        if (text === 'ดูประกาศ') {
+          await client.replyMessage({
+            replyToken: event.replyToken,
+            messages: [{
+              type: 'flex', altText: 'ดูประกาศ',
+              contents: {
+                type: 'bubble', size: 'kilo',
+                body: {
+                  type: 'box', layout: 'vertical', spacing: 'sm', paddingAll: '16px',
+                  contents: [
+                    { type: 'text', text: '📢 ดูประกาศทั้งหมด', weight: 'bold', size: 'md', color: '#1565c0' },
+                    { type: 'text', text: 'กดปุ่มด้านล่างเพื่อเปิดหน้าประกาศ', size: 'xs', color: '#8c7b75', margin: 'sm' },
+                    { type: 'button', style: 'primary', height: 'sm', color: '#64b5f6', margin: 'lg',
+                      action: { type: 'uri', label: 'เปิดประกาศ', uri: `${liffUrl}/announcements` } },
+                  ],
+                },
+              },
+            }],
+          });
+        }
+
+        if (text === 'เช็คงานค้าง') {
+          await client.replyMessage({
+            replyToken: event.replyToken,
+            messages: [{
+              type: 'flex', altText: 'งานค้างส่ง',
+              contents: {
+                type: 'bubble', size: 'kilo',
+                body: {
+                  type: 'box', layout: 'vertical', spacing: 'sm', paddingAll: '16px',
+                  contents: [
+                    { type: 'text', text: '⏰ เช็คงานค้างส่ง', weight: 'bold', size: 'md', color: '#c0392b' },
+                    { type: 'text', text: 'กดเพื่อดูงานที่ยังไม่ได้ส่ง', size: 'xs', color: '#8c7b75', margin: 'sm' },
+                    { type: 'button', style: 'primary', height: 'sm', color: '#ff7043', margin: 'lg',
+                      action: { type: 'uri', label: 'ดูงานค้าง', uri: `${liffUrl}/homework-list` } },
+                  ],
+                },
+              },
+            }],
+          });
+        }
+
         if (text === '#การบ้าน') {
           await client.replyMessage({
             replyToken: event.replyToken,
@@ -173,6 +295,18 @@ export async function POST(req: NextRequest) {
               },
             }],
           });
+        }
+
+        // ===== #ส่งงานออกจากกลุ่ม - Bot leaves group =====
+        if (text === '#ส่งงานออกจากกลุ่ม' && event.source?.type === 'group') {
+          const groupId = event.source.groupId;
+          await client.replyMessage({
+            replyToken: event.replyToken,
+            messages: [{ type: 'text', text: 'ลาก่อนครับ! 👋 บอท Song-Yang จะออกจากกลุ่มนี้แล้วนะ\n\nหากต้องการเพิ่มกลับมาใหม่ ให้เชิญบอทเข้ากลุ่มอีกครั้งได้เลยครับ' }],
+          });
+          // Remove from DB and leave
+          await removeGroup(groupId);
+          await client.leaveGroup(groupId);
         }
       }
 
