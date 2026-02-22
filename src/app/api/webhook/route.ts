@@ -298,7 +298,7 @@ export async function POST(req: NextRequest) {
         }
 
         // ===== #ส่งงานออกจากกลุ่ม - Bot leaves group =====
-        if (text === '#ส่งงานออกจากกลุ่ม' && event.source?.type === 'group') {
+        if (text === '#ส่งยังออกจากลุ่ม' && event.source?.type === 'group') {
           const groupId = event.source.groupId;
           await client.replyMessage({
             replyToken: event.replyToken,
