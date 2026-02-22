@@ -138,7 +138,7 @@ export async function POST(req: NextRequest) {
                           { type: 'text', text: 'เช็คงานวันนี้', size: 'xs', color: '#8c7b75', align: 'center', margin: 'sm' },
                         ],
                       },
-                      action: { type: 'message', label: 'ดูการบ้าน', text: 'ดูการบ้าน' },
+                      action: { type: 'uri', label: 'ดูการบ้าน', uri: `${liffUrl}/homework-list` },
                     },
                     {
                       type: 'bubble', size: 'micro',
@@ -150,7 +150,7 @@ export async function POST(req: NextRequest) {
                           { type: 'text', text: 'ข่าวสารห้องเรียน', size: 'xs', color: '#8c7b75', align: 'center', margin: 'sm' },
                         ],
                       },
-                      action: { type: 'message', label: 'ดูประกาศ', text: 'ดูประกาศ' },
+                      action: { type: 'uri', label: 'ดูประกาศ', uri: `${liffUrl}/announcements` },
                     },
                     {
                       type: 'bubble', size: 'micro',
@@ -162,76 +162,12 @@ export async function POST(req: NextRequest) {
                           { type: 'text', text: 'เช็คงานที่ดองไว้', size: 'xs', color: '#8c7b75', align: 'center', margin: 'sm' },
                         ],
                       },
-                      action: { type: 'message', label: 'เช็คงานค้าง', text: 'เช็คงานค้าง' },
+                      action: { type: 'uri', label: 'เช็คงานค้าง', uri: `${liffUrl}/homework-list` },
                     },
                   ],
                 },
               },
             ],
-          });
-        }
-
-        // ===== Quick actions from carousel =====
-        if (text === 'ดูการบ้าน') {
-          await client.replyMessage({
-            replyToken: event.replyToken,
-            messages: [{
-              type: 'flex', altText: 'ดูการบ้าน',
-              contents: {
-                type: 'bubble', size: 'kilo',
-                body: {
-                  type: 'box', layout: 'vertical', spacing: 'sm', paddingAll: '16px',
-                  contents: [
-                    { type: 'text', text: '📋 ดูการบ้านทั้งหมด', weight: 'bold', size: 'md', color: '#5e4034' },
-                    { type: 'text', text: 'กดปุ่มด้านล่างเพื่อเปิดหน้าการบ้าน', size: 'xs', color: '#8c7b75', margin: 'sm' },
-                    { type: 'button', style: 'primary', height: 'sm', color: '#ffb74d', margin: 'lg',
-                      action: { type: 'uri', label: 'เปิดการบ้าน', uri: `${liffUrl}/homework-list` } },
-                  ],
-                },
-              },
-            }],
-          });
-        }
-
-        if (text === 'ดูประกาศ') {
-          await client.replyMessage({
-            replyToken: event.replyToken,
-            messages: [{
-              type: 'flex', altText: 'ดูประกาศ',
-              contents: {
-                type: 'bubble', size: 'kilo',
-                body: {
-                  type: 'box', layout: 'vertical', spacing: 'sm', paddingAll: '16px',
-                  contents: [
-                    { type: 'text', text: '📢 ดูประกาศทั้งหมด', weight: 'bold', size: 'md', color: '#1565c0' },
-                    { type: 'text', text: 'กดปุ่มด้านล่างเพื่อเปิดหน้าประกาศ', size: 'xs', color: '#8c7b75', margin: 'sm' },
-                    { type: 'button', style: 'primary', height: 'sm', color: '#64b5f6', margin: 'lg',
-                      action: { type: 'uri', label: 'เปิดประกาศ', uri: `${liffUrl}/announcements` } },
-                  ],
-                },
-              },
-            }],
-          });
-        }
-
-        if (text === 'เช็คงานค้าง') {
-          await client.replyMessage({
-            replyToken: event.replyToken,
-            messages: [{
-              type: 'flex', altText: 'งานค้างส่ง',
-              contents: {
-                type: 'bubble', size: 'kilo',
-                body: {
-                  type: 'box', layout: 'vertical', spacing: 'sm', paddingAll: '16px',
-                  contents: [
-                    { type: 'text', text: '⏰ เช็คงานค้างส่ง', weight: 'bold', size: 'md', color: '#c0392b' },
-                    { type: 'text', text: 'กดเพื่อดูงานที่ยังไม่ได้ส่ง', size: 'xs', color: '#8c7b75', margin: 'sm' },
-                    { type: 'button', style: 'primary', height: 'sm', color: '#ff7043', margin: 'lg',
-                      action: { type: 'uri', label: 'ดูงานค้าง', uri: `${liffUrl}/homework-list` } },
-                  ],
-                },
-              },
-            }],
           });
         }
 
