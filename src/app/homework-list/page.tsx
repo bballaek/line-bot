@@ -8,6 +8,7 @@ import { ClipboardList, Plus, CheckCircle2, Send, X, MessageSquare, Users, Chevr
 type Homework = {
   id: string; subject: string; title: string; description: string;
   target_group?: string;
+  created_by?: string;
   due_date: string | null; created_at: string;
   user_homeworks: { status: string }[];
 };
@@ -43,6 +44,7 @@ export default function HomeworkListPage() {
   const [homeworks, setHomeworks] = useState<Homework[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<string>("All");
+  const [currentDbUserId, setCurrentDbUserId] = useState<string | null>(null);
 
   const [showSend, setShowSend] = useState(false);
   const [sendStep, setSendStep] = useState<"choose" | "groups">("choose");
@@ -52,6 +54,8 @@ export default function HomeworkListPage() {
   const [loadingGroups, setLoadingGroups] = useState(false);
   const [sending, setSending] = useState(false);
 
+  const [readingHw, setReadingHw] = useState<Homework | null>(null);
+
   useEffect(() => { if (isReady && userId) fetchHomeworks(); }, [isReady, userId]);
 
   const fetchHomeworks = async () => {
@@ -59,13 +63,14 @@ export default function HomeworkListPage() {
       setLoading(true);
       const { data: userData } = await supabase.from("users").select("id").eq("line_user_id", userId as string).single();
       if (!userData) return;
+      setCurrentDbUserId(userData.id);
 
       const { data: settingsData } = await supabase.from("user_settings").select("target_group").eq("user_id", userData.id).single();
       const userGroup = settingsData?.target_group || "All";
       setActiveTab(userGroup);
 
       const { data, error } = await supabase.from("homeworks")
-        .select("id, subject, title, description, target_group, due_date, created_at, user_homeworks ( status )")
+        .select("id, subject, title, description, target_group, created_by, due_date, created_at, user_homeworks ( status )")
         .order("due_date", { ascending: false });
 
       if (error) throw error;
@@ -120,9 +125,9 @@ export default function HomeworkListPage() {
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <span style={{ color: "#93C5FD", fontSize: 13 }}>{homeworks.length} รายการ</span>
-            {homeworks.length > 0 && (
+            {homeworks.length > 0 && homeworks.some(hw => hw.created_by === currentDbUserId) && (
               <button onClick={openSendDaily} style={{ background: "rgba(255,255,255,0.2)", border: "none", borderRadius: 8, padding: "4px 10px", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 4 }}>
-                <Send size={12} /> ส่ง
+                <Send size={12} /> ส่งรายงาน
               </button>
             )}
           </div>
@@ -185,13 +190,15 @@ export default function HomeworkListPage() {
                       const isAllDone = doneCount === totalCount && totalCount > 0;
 
                       return (
-                        <div key={hw.id} style={{ background: "#fff", borderRadius: 14, border: "1px solid #E2E8F0", overflow: "hidden" }}>
+                        <div key={hw.id} style={{ background: "#fff", borderRadius: 14, border: "1px solid #E2E8F0", overflow: "hidden", cursor: "pointer", transition: "all 0.2s" }} onClick={() => setReadingHw(hw)}>
                           <div style={{ padding: "12px 14px" }}>
                             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
                               <div style={{ fontWeight: 700, fontSize: 15, color: "#1E293B", flex: 1 }}>{hw.title}</div>
-                              <button onClick={() => openSendSingle(hw)} style={{ background: "none", border: "none", cursor: "pointer", color: "#93C5FD", padding: "2px 4px" }}>
-                                <Send size={15} />
-                              </button>
+                              {currentDbUserId && hw.created_by === currentDbUserId && (
+                                <button onClick={(e) => { e.stopPropagation(); openSendSingle(hw); }} style={{ background: "none", border: "none", cursor: "pointer", color: "#93C5FD", padding: "2px 4px" }}>
+                                  <Send size={15} />
+                                </button>
+                              )}
                             </div>
 
                             <div style={{ display: "flex", gap: 6, marginBottom: 6 }}>
@@ -247,12 +254,53 @@ export default function HomeworkListPage() {
       </div>
 
       {/* Footer */}
-      <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, padding: "12px 20px", paddingBottom: "calc(12px + env(safe-area-inset-bottom, 0px))", background: "rgba(240,244,250,0.95)", backdropFilter: "blur(10px)", borderTop: "1px solid #E2E8F0", zIndex: 100 }}>
+      <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, padding: "12px 20px", paddingBottom: "calc(12px + env(safe-area-inset-bottom, 0px))", background: "rgba(240,244,250,0.95)", backdropFilter: "blur(10px)", borderTop: "1px solid #E2E8F0", zIndex: 90 }}>
         <button onClick={() => (window.location.href = "/add-homework")}
           style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%", maxWidth: 400, margin: "0 auto", padding: 14, background: "#2563EB", color: "#fff", fontSize: 15, fontWeight: 700, border: "none", borderRadius: 50, cursor: "pointer" }}>
           <Plus size={18} /> สร้างการบ้าน
         </button>
       </div>
+
+      {/* Reading Modal */}
+      {readingHw && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 100, display: "flex", alignItems: "flex-end", justifyContent: "center" }} onClick={() => setReadingHw(null)}>
+          <div style={{ background: "#fff", borderRadius: "24px 24px 0 0", width: "100%", maxWidth: 600, maxHeight: "85vh", display: "flex", flexDirection: "column", animation: "slideUp 0.3s ease-out" }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "20px 24px 16px", borderBottom: "1px solid #E2E8F0" }}>
+              <h3 style={{ fontSize: 18, fontWeight: 700, color: "#1E293B", margin: 0 }}>รายละเอียดการบ้าน</h3>
+              <button onClick={() => setReadingHw(null)} style={{ background: "#F1F5F9", border: "none", width: 32, height: 32, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#64748B" }}>
+                <X size={18} />
+              </button>
+            </div>
+            
+            <div style={{ padding: "24px", overflowY: "auto", flex: 1 }}>
+              <h2 style={{ fontSize: 20, fontWeight: 700, color: "#1E293B", marginBottom: 12 }}>{readingHw.title}</h2>
+              
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 20 }}>
+                <div style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "#EFF6FF", borderRadius: 8, padding: "6px 12px" }}>
+                  <BookOpen size={14} color="#3B82F6" />
+                  <span style={{ fontSize: 13, fontWeight: 600, color: "#3B82F6" }}>{readingHw.subject}</span>
+                </div>
+                {readingHw.target_group && readingHw.target_group !== "All" && (
+                  <div style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "#FEF2F2", borderRadius: 8, padding: "6px 12px" }}>
+                    <Users size={14} color="#E11D48" />
+                    <span style={{ fontSize: 13, fontWeight: 600, color: "#E11D48" }}>{readingHw.target_group}</span>
+                  </div>
+                )}
+                {readingHw.due_date && (
+                  <div style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "#F8FAFC", border: "1px solid #E2E8F0", borderRadius: 8, padding: "5px 12px" }}>
+                    <Clock size={14} color="#64748B" />
+                    <span style={{ fontSize: 13, fontWeight: 500, color: "#475569" }}>ส่งก่อน {formatTime(readingHw.due_date)}</span>
+                  </div>
+                )}
+              </div>
+
+              <div style={{ fontSize: 15, color: "#475569", lineHeight: 1.7, whiteSpace: "pre-wrap", background: "#F8FAFC", padding: 20, borderRadius: 12, border: "1px solid #E2E8F0" }}>
+                {readingHw.description || <span style={{ color: "#94A3B8", fontStyle: "italic" }}>ไม่มีรายละเอียดเพิ่มเติมชิ้นนี้</span>}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Send Modal */}
       {showSend && (
