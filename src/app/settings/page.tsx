@@ -29,18 +29,34 @@ export default function SettingsPage() {
   if (liffError) return <div style={{ padding: 16, color: "#E53935" }}>Error: {liffError}</div>;
   if (!isReady) return <div style={{ padding: 16, textAlign: "center", color: "#94A3B8" }}>Loading...</div>;
 
+  // Ensure user exists in DB, return their UUID
+  const ensureUser = async (): Promise<string> => {
+    // Try to find existing user
+    const { data: existing } = await supabase
+      .from("users").select("id").eq("line_user_id", userId as string).single();
+    if (existing) return existing.id;
+
+    // Auto-create user if not found
+    const { data: created, error: createErr } = await supabase
+      .from("users").upsert(
+        { line_user_id: userId as string, display_name: "LIFF User" },
+        { onConflict: "line_user_id" }
+      ).select("id").single();
+    if (createErr) throw new Error("ไม่สามารถสร้างผู้ใช้ได้: " + createErr.message);
+    if (!created) throw new Error("ไม่สามารถสร้างผู้ใช้ได้");
+    return created.id;
+  };
+
   const loadSettings = async () => {
     try {
-      const { data: userData } = await supabase
-        .from("users").select("id").eq("line_user_id", userId as string).single();
-      if (!userData) return;
+      const dbId = await ensureUser();
       const { data } = await supabase
-        .from("user_settings").select("notify_days, target_group").eq("user_id", userData.id).single();
+        .from("user_settings").select("notify_days, target_group").eq("user_id", dbId).single();
       if (data) {
         if (data.notify_days && Array.isArray(data.notify_days)) setSelected(data.notify_days);
         if (data.target_group) setTargetGroup(data.target_group);
       }
-    } catch (e) { console.error(e); }
+    } catch (e) { console.error("loadSettings error:", e); }
   };
 
   const toggleOption = (val: string) => {
@@ -58,12 +74,10 @@ export default function SettingsPage() {
     setSaving(true);
     setSaved(false);
     try {
-      const { data: userData } = await supabase
-        .from("users").select("id").eq("line_user_id", userId as string).single();
-      if (!userData) throw new Error("User not found");
+      const dbId = await ensureUser();
 
       const { error } = await supabase.from("user_settings").upsert(
-        { user_id: userData.id, notify_days: selected, target_group: targetGroup },
+        { user_id: dbId, notify_days: selected, target_group: targetGroup },
         { onConflict: "user_id" }
       );
       if (error) throw error;
