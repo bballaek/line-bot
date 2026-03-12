@@ -191,7 +191,7 @@ export default function HomeworkListPage() {
                       const isAllDone = doneCount === totalCount && totalCount > 0;
 
                       return (
-                        <div key={hw.id} style={{ background: "#fff", borderRadius: 14, border: "1px solid #E2E8F0", overflow: "hidden", cursor: "pointer", transition: "all 0.2s" }} onClick={() => setReadingHw(hw)}>
+                        <div key={hw.id} style={{ background: "#fff", borderRadius: 14, border: "1px solid #E2E8F0", overflow: "hidden", cursor: "pointer", transition: "all 0.2s" }} onClick={() => (window.location.href = `/homework-list/${hw.id}`)}>
                           <div style={{ padding: "12px 14px" }}>
                             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
                               <div style={{ fontWeight: 700, fontSize: 15, color: "#1E293B", flex: 1 }}>{hw.title}</div>
