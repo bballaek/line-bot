@@ -62,15 +62,16 @@ export default function SettingsPage() {
         .from("users").select("id").eq("line_user_id", userId as string).single();
       if (!userData) throw new Error("User not found");
 
-      await supabase.from("user_settings").upsert(
+      const { error } = await supabase.from("user_settings").upsert(
         { user_id: userData.id, notify_days: selected, target_group: targetGroup },
         { onConflict: "user_id" }
       );
+      if (error) throw error;
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     } catch (err: any) {
-      console.error(err);
-      alert(err.message || "เกิดข้อผิดพลาด");
+      console.error("Save settings error:", err);
+      alert("บันทึกไม่สำเร็จ: " + (err.message || JSON.stringify(err)));
     } finally { setSaving(false); }
   };
 
