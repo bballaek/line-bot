@@ -7,6 +7,7 @@ import { ClipboardList, Plus, CheckCircle2, Send, X, MessageSquare, Users, Chevr
 
 type Homework = {
   id: string; subject: string; title: string; description: string;
+  target_group?: string;
   due_date: string | null; created_at: string;
   user_homeworks: { status: string }[];
 };
@@ -41,6 +42,7 @@ export default function HomeworkListPage() {
   const { isReady, liffError, userId } = useLiff();
   const [homeworks, setHomeworks] = useState<Homework[]>([]);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<string>("All");
 
   const [showSend, setShowSend] = useState(false);
   const [sendStep, setSendStep] = useState<"choose" | "groups">("choose");
@@ -57,9 +59,15 @@ export default function HomeworkListPage() {
       setLoading(true);
       const { data: userData } = await supabase.from("users").select("id").eq("line_user_id", userId as string).single();
       if (!userData) return;
+
+      const { data: settingsData } = await supabase.from("user_settings").select("target_group").eq("user_id", userData.id).single();
+      const userGroup = settingsData?.target_group || "All";
+      setActiveTab(userGroup);
+
       const { data, error } = await supabase.from("homeworks")
-        .select("id, subject, title, description, due_date, created_at, user_homeworks ( status )")
+        .select("id, subject, title, description, target_group, due_date, created_at, user_homeworks ( status )")
         .order("due_date", { ascending: false });
+
       if (error) throw error;
       setHomeworks((data || []).map((hw) => ({ ...hw, user_homeworks: hw.user_homeworks || [] })) as Homework[]);
     } catch (e) { console.error(e); }
@@ -94,7 +102,12 @@ export default function HomeworkListPage() {
   if (liffError) return <div style={{ padding: 16, color: "#E53935" }}>Error: {liffError}</div>;
   if (!isReady) return <div style={{ padding: 16, textAlign: "center", color: "#94A3B8" }}>Loading...</div>;
 
-  const grouped = groupHomeworks(homeworks);
+  const filteredHomeworks = homeworks.filter((hw) => {
+    if (activeTab === "All") return true;
+    return !hw.target_group || hw.target_group === "All" || hw.target_group === activeTab;
+  });
+
+  const grouped = groupHomeworks(filteredHomeworks);
 
   return (
     <div style={{ minHeight: "100vh", background: "#F0F4FA", paddingBottom: 80 }}>
@@ -113,6 +126,33 @@ export default function HomeworkListPage() {
               </button>
             )}
           </div>
+        </div>
+      </div>
+
+      {/* Target Group Filter (Segmented Control) */}
+      <div style={{ padding: "16px 16px 0", display: "flex", justifyContent: "center" }}>
+        <div style={{ display: "flex", background: "#E2E8F0", borderRadius: 20, padding: 4, width: "100%", maxWidth: 320 }}>
+          {["All", "Group A", "Group B"].map(tab => (
+            <div
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              style={{
+                flex: 1,
+                textAlign: "center",
+                padding: "8px 0",
+                fontSize: 14,
+                fontWeight: activeTab === tab ? 600 : 500,
+                color: activeTab === tab ? "#1E293B" : "#64748B",
+                background: activeTab === tab ? "#FFFFFF" : "transparent",
+                borderRadius: 16,
+                cursor: "pointer",
+                boxShadow: activeTab === tab ? "0 2px 4px rgba(0,0,0,0.05)" : "none",
+                transition: "all 0.2s"
+              }}
+            >
+              {tab === "All" ? "ทั้งหมด" : tab}
+            </div>
+          ))}
         </div>
       </div>
 
@@ -154,9 +194,17 @@ export default function HomeworkListPage() {
                               </button>
                             </div>
 
-                            <div style={{ display: "inline-flex", alignItems: "center", gap: 4, background: "#EFF6FF", borderRadius: 6, padding: "2px 8px", marginBottom: 6 }}>
-                              <BookOpen size={10} color="#3B82F6" />
-                              <span style={{ fontSize: 11, fontWeight: 600, color: "#3B82F6" }}>{hw.subject}</span>
+                            <div style={{ display: "flex", gap: 6, marginBottom: 6 }}>
+                              <div style={{ display: "inline-flex", alignItems: "center", gap: 4, background: "#EFF6FF", borderRadius: 6, padding: "2px 8px" }}>
+                                <BookOpen size={10} color="#3B82F6" />
+                                <span style={{ fontSize: 11, fontWeight: 600, color: "#3B82F6" }}>{hw.subject}</span>
+                              </div>
+                              {hw.target_group && hw.target_group !== "All" && (
+                                <div style={{ display: "inline-flex", alignItems: "center", gap: 4, background: "#FEF2F2", borderRadius: 6, padding: "2px 8px" }}>
+                                  <Users size={10} color="#E11D48" />
+                                  <span style={{ fontSize: 11, fontWeight: 600, color: "#E11D48" }}>{hw.target_group}</span>
+                                </div>
+                              )}
                             </div>
 
                             {hw.description && (

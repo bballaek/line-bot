@@ -16,6 +16,7 @@ export default function AddHomeworkPage() {
   const [dueTime, setDueTime] = useState("00:00");
   const [linkUrl, setLinkUrl] = useState("");
   const [hwType, setHwType] = useState<"single" | "group">("single");
+  const [targetGroup, setTargetGroup] = useState<"All" | "Group A" | "Group B">("All");
   const [loading, setLoading] = useState(false);
 
   const [showPopup, setShowPopup] = useState(false);
@@ -46,11 +47,11 @@ export default function AddHomeworkPage() {
 
       const dueDatetime = dueDate ? new Date(`${dueDate}T${dueTime}:00`).toISOString() : null;
       const { data, error } = await supabase.from("homeworks").insert({
-        created_by: userData.id, subject, title, description, due_date: dueDatetime,
+        created_by: userData.id, subject, title, description, due_date: dueDatetime, target_group: targetGroup
       }).select("id").single();
       if (error) throw error;
 
-      setSavedHw({ id: data?.id, title, subject, description, due_date: dueDatetime });
+      setSavedHw({ id: data?.id, title, subject, description, due_date: dueDatetime, target_group: targetGroup });
       setShowPopup(true); setPopupStep("main");
     } catch (err: any) { console.error(err); alert(err.message || "เกิดข้อผิดพลาด"); }
     finally { setLoading(false); }
@@ -71,7 +72,7 @@ export default function AddHomeworkPage() {
     finally { setSending(false); }
   };
 
-  const resetForm = () => { setShowPopup(false); setSubject(""); setTitle(""); setDescription(""); setDueDate(""); setDueTime("00:00"); setLinkUrl(""); setSavedHw(null); };
+  const resetForm = () => { setShowPopup(false); setSubject(""); setTitle(""); setDescription(""); setDueDate(""); setDueTime("00:00"); setLinkUrl(""); setTargetGroup("All"); setSavedHw(null); };
 
   const inputStyle: React.CSSProperties = { width: "100%", padding: "12px 14px", border: "1px solid #E2E8F0", borderRadius: 10, fontSize: 15, background: "#fff", outline: "none", boxSizing: "border-box" };
   const labelStyle: React.CSSProperties = { display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 600, color: "#475569", marginBottom: 6 };
@@ -130,6 +131,20 @@ export default function AddHomeworkPage() {
             <Upload size={24} color="#94A3B8" style={{ marginBottom: 6 }} />
             <div style={{ fontSize: 13, color: "#64748B", fontWeight: 500 }}>อัปโหลดไฟล์</div>
             <div style={{ fontSize: 11, color: "#CBD5E1", marginTop: 2 }}>(สูงสุด 4 ไฟล์ ไฟล์ละไม่เกิน 50MB)</div>
+          </div>
+        </div>
+
+        <div style={{ marginBottom: 16 }}>
+          <label style={labelStyle}><Users size={14} /> <span style={{ color: "#E53935" }}>*</span> กลุ่มเป้าหมาย</label>
+          <div style={{ display: "flex", gap: 16 }}>
+            {["All", "Group A", "Group B"].map((grp) => (
+              <label key={grp} style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 14, color: "#1E293B" }}>
+                <div onClick={() => setTargetGroup(grp as any)} style={{ width: 20, height: 20, borderRadius: "50%", border: targetGroup === grp ? "none" : "2px solid #CBD5E1", background: targetGroup === grp ? "#2563EB" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
+                  {targetGroup === grp && <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#fff" }} />}
+                </div>
+                {grp === "All" ? "ทั้งหมด" : grp}
+              </label>
+            ))}
           </div>
         </div>
 

@@ -21,6 +21,7 @@ CREATE TABLE IF NOT EXISTS public.groups (
 CREATE TABLE IF NOT EXISTS public.user_settings (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES public.users(id) ON DELETE CASCADE UNIQUE,
+  target_group TEXT DEFAULT 'All',
   notify_time TEXT DEFAULT '19:00',
   notify_days JSONB DEFAULT '[]'::jsonb,
   created_at TIMESTAMPTZ DEFAULT now()
@@ -43,6 +44,7 @@ CREATE TABLE IF NOT EXISTS public.homeworks (
   subject TEXT NOT NULL,
   title TEXT NOT NULL,
   description TEXT,
+  target_group TEXT DEFAULT 'All',
   due_date TIMESTAMPTZ,
   created_at TIMESTAMPTZ DEFAULT now()
 );
@@ -74,6 +76,12 @@ BEGIN
   END IF;
   IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'announcements' AND column_name = 'pinned') THEN
     ALTER TABLE public.announcements ADD COLUMN pinned BOOLEAN DEFAULT false;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'user_settings' AND column_name = 'target_group') THEN
+    ALTER TABLE public.user_settings ADD COLUMN target_group TEXT DEFAULT 'All';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'homeworks' AND column_name = 'target_group') THEN
+    ALTER TABLE public.homeworks ADD COLUMN target_group TEXT DEFAULT 'All';
   END IF;
 END $$;
 

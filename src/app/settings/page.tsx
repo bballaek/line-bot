@@ -18,6 +18,7 @@ const MAX_SELECTIONS = 3;
 export default function SettingsPage() {
   const { isReady, liffError, userId } = useLiff();
   const [selected, setSelected] = useState<string[]>(["1d"]);
+  const [targetGroup, setTargetGroup] = useState<string>("All");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
@@ -34,9 +35,10 @@ export default function SettingsPage() {
         .from("users").select("id").eq("line_user_id", userId as string).single();
       if (!userData) return;
       const { data } = await supabase
-        .from("user_settings").select("notify_days").eq("user_id", userData.id).single();
-      if (data?.notify_days && Array.isArray(data.notify_days)) {
-        setSelected(data.notify_days);
+        .from("user_settings").select("notify_days, target_group").eq("user_id", userData.id).single();
+      if (data) {
+        if (data.notify_days && Array.isArray(data.notify_days)) setSelected(data.notify_days);
+        if (data.target_group) setTargetGroup(data.target_group);
       }
     } catch (e) { console.error(e); }
   };
@@ -61,7 +63,7 @@ export default function SettingsPage() {
       if (!userData) throw new Error("User not found");
 
       await supabase.from("user_settings").upsert(
-        { user_id: userData.id, notify_days: selected },
+        { user_id: userData.id, notify_days: selected, target_group: targetGroup },
         { onConflict: "user_id" }
       );
       setSaved(true);
@@ -84,6 +86,18 @@ export default function SettingsPage() {
 
       {/* Content */}
       <div style={{ padding: "20px 16px", flex: 1, paddingBottom: 100 }}>
+        <h2 style={{ fontSize: 15, fontWeight: 700, color: "#1E293B", marginBottom: 16 }}>กลุ่มเรียนของฉัน</h2>
+        <div style={{ display: "flex", gap: 12, marginBottom: 24 }}>
+          {["All", "Group A", "Group B"].map((grp) => (
+            <label key={grp} style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 14, color: "#1E293B" }}>
+              <div onClick={() => setTargetGroup(grp)} style={{ width: 20, height: 20, borderRadius: "50%", border: targetGroup === grp ? "none" : "2px solid #CBD5E1", background: targetGroup === grp ? "#2563EB" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
+                {targetGroup === grp && <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#fff" }} />}
+              </div>
+              {grp === "All" ? "ทั้งหมด" : grp}
+            </label>
+          ))}
+        </div>
+
         <h2 style={{ fontSize: 15, fontWeight: 700, color: "#1E293B", marginBottom: 16 }}>การแจ้งเตือนก่อนถึงกำหนด</h2>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>

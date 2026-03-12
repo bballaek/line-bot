@@ -54,7 +54,7 @@ export async function POST(req: NextRequest) {
                 { type: 'text', text: hw.subject || 'ไม่ระบุวิชา', weight: 'bold', color: '#5e4034', size: 'md', margin: 'md', gravity: 'center', flex: 1 },
               ],
             },
-            { type: 'text', text: `หัวข้อ: ${hw.title}`, weight: 'bold', size: 'sm', color: '#333333', margin: 'md' },
+            { type: 'text', text: `หัวข้อ: ${hw.target_group && hw.target_group !== 'All' ? '[' + hw.target_group + '] ' : ''}${hw.title}`, weight: 'bold', size: 'sm', color: '#333333', margin: 'md' },
             ...(hw.description ? [{
               type: 'text' as const, text: `Details: ${hw.description.length > 80 ? hw.description.substring(0, 80) + '...' : hw.description}`,
               size: 'xxs' as const, color: '#8c7b75', wrap: true, margin: 'xs' as const,
@@ -105,7 +105,7 @@ export async function POST(req: NextRequest) {
       const dueLabel = homework.due_date ? formatDueLabel(homework.due_date) : 'ไม่ระบุ';
 
       const bodyContents: any[] = [
-        { type: 'text', text: `หัวข้อ: ${homework.title}`, weight: 'bold', size: 'md', color: '#333333' },
+        { type: 'text', text: `หัวข้อ: ${homework.target_group && homework.target_group !== 'All' ? '[' + homework.target_group + '] ' : ''}${homework.title}`, weight: 'bold', size: 'md', color: '#333333' },
         { type: 'separator', margin: 'md', color: '#eeeeee' },
       ];
 
