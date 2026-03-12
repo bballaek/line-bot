@@ -3,7 +3,7 @@
 import React, { useState, useRef } from "react";
 import { useLiff } from "@/lib/liff-provider";
 import { supabase } from "@/lib/supabase";
-import { ArrowLeft, Upload, Megaphone, AlignLeft, CalendarDays, Link2, Paperclip, FileEdit, AlertCircle, Check, Clock3, X, Users, MessageSquare, ChevronRight, Send, Bold, Italic, Heading, List, Eye, Edit2 } from "lucide-react";
+import { ArrowLeft, Upload, Megaphone, AlignLeft, CalendarDays, Link2, Paperclip, FileEdit, AlertCircle, Check, Clock3, X, Users, MessageSquare, ChevronRight, Send, Bold, Italic, Heading, List, Eye, Edit2, Trash2, Image as ImageIcon } from "lucide-react";
 import MarkdownRenderer from "@/components/MarkdownRenderer";
 
 type Group = { id: string; line_group_id: string; group_name: string };
@@ -19,6 +19,9 @@ export default function CreateAnnouncementPage() {
   const [loading, setLoading] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const textAreaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
 
   const insertFormat = (format: string) => {
     const textarea = textAreaRef.current;
@@ -75,6 +78,30 @@ export default function CreateAnnouncementPage() {
     catch { setGroups([]); } finally { setLoadingGroups(false); }
   };
 
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) { alert('กรุณาเลือกไฟล์รูปภาพเท่านั้น'); return; }
+    if (file.size > 5 * 1024 * 1024) { alert('ไฟล์ขนาดใหญ่เกินไป (สูงสุด 5MB)'); return; }
+    setUploading(true);
+    try {
+      const ext = file.name.split('.').pop();
+      const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${ext}`;
+      const { error: uploadError } = await supabase.storage
+        .from('announcement-images')
+        .upload(fileName, file, { contentType: file.type });
+      if (uploadError) throw uploadError;
+      const { data: urlData } = supabase.storage.from('announcement-images').getPublicUrl(fileName);
+      setImageUrl(urlData.publicUrl);
+    } catch (err: any) {
+      console.error(err);
+      alert('อัปโหลดไม่สำเร็จ: ' + (err.message || ''));
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
   const handleSubmit = async () => {
     if (!title.trim()) { alert("กรุณากรอกหัวข้อประกาศ"); return; }
     setLoading(true);
@@ -85,11 +112,11 @@ export default function CreateAnnouncementPage() {
 
       const dateVal = eventDate ? new Date(`${eventDate}T${eventTime}:00`).toISOString() : null;
       const { data, error } = await supabase.from("announcements").insert({
-        created_by: userData.id, title, content, pinned: annType === "action",
+        created_by: userData.id, title, content, pinned: annType === "action", image_url: imageUrl,
       }).select("id").single();
       if (error) throw error;
 
-      setSavedAnn({ id: data?.id, title, content, type: annType, event_date: dateVal });
+      setSavedAnn({ id: data?.id, title, content, type: annType, event_date: dateVal, image_url: imageUrl });
       setShowPopup(true); setPopupStep("main");
     } catch (err: any) { console.error(err); alert(err.message || "เกิดข้อผิดพลาด"); }
     finally { setLoading(false); }
@@ -110,7 +137,7 @@ export default function CreateAnnouncementPage() {
     finally { setSending(false); }
   };
 
-  const resetForm = () => { setShowPopup(false); setTitle(""); setContent(""); setEventDate(""); setEventTime("09:00"); setLinkUrl(""); setSavedAnn(null); };
+  const resetForm = () => { setShowPopup(false); setTitle(""); setContent(""); setEventDate(""); setEventTime("09:00"); setLinkUrl(""); setSavedAnn(null); setImageUrl(null); };
   const inputStyle: React.CSSProperties = { width: "100%", padding: "12px 14px", border: "1px solid #E2E8F0", borderRadius: 10, fontSize: 15, background: "#fff", outline: "none", boxSizing: "border-box" };
   const labelStyle: React.CSSProperties = { display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 600, color: "#475569", marginBottom: 6 };
 
@@ -125,12 +152,25 @@ export default function CreateAnnouncementPage() {
       </div>
 
       {/* Image Upload */}
-      <div style={{ margin: "16px 16px 0", borderRadius: 14, background: "#DBEAFE", padding: "28px 20px", textAlign: "center", border: "1px dashed #93C5FD" }}>
-        <Upload size={36} color="#3B82F6" style={{ marginBottom: 10 }} />
-        <button style={{ background: "#2563EB", color: "#fff", border: "none", borderRadius: 50, padding: "8px 20px", fontSize: 13, fontWeight: 600, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}>
-          <Upload size={14} /> อัปโหลดภาพ
-        </button>
-      </div>
+      <input type="file" accept="image/*" ref={fileInputRef} onChange={handleImageUpload} style={{ display: 'none' }} />
+      {imageUrl ? (
+        <div style={{ margin: "16px 16px 0", borderRadius: 14, overflow: "hidden", position: "relative", border: "1px solid #E2E8F0" }}>
+          <img src={imageUrl} alt="Preview" style={{ width: "100%", maxHeight: 200, objectFit: "cover", display: "block" }} />
+          <button onClick={() => setImageUrl(null)}
+            style={{ position: "absolute", top: 8, right: 8, background: "rgba(0,0,0,0.6)", border: "none", borderRadius: "50%", width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
+            <Trash2 size={14} color="#fff" />
+          </button>
+        </div>
+      ) : (
+        <div style={{ margin: "16px 16px 0", borderRadius: 14, background: "#DBEAFE", padding: "28px 20px", textAlign: "center", border: "1px dashed #93C5FD" }}>
+          <Upload size={36} color="#3B82F6" style={{ marginBottom: 10 }} />
+          <button onClick={() => fileInputRef.current?.click()} disabled={uploading}
+            style={{ background: "#2563EB", color: "#fff", border: "none", borderRadius: 50, padding: "8px 20px", fontSize: 13, fontWeight: 600, cursor: uploading ? "not-allowed" : "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}>
+            {uploading ? <><span>กำลังอัปโหลด...</span></> : <><ImageIcon size={14} /> อัปโหลดภาพ</>}
+          </button>
+          <div style={{ fontSize: 11, color: "#64748B", marginTop: 6 }}>ไฟล์รูปภาพขนาดไม่เกิน 5MB</div>
+        </div>
+      )}
 
       {/* Form */}
       <div style={{ padding: "20px 16px", flex: 1, paddingBottom: 100 }}>
