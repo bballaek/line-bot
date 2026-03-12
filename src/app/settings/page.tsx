@@ -76,11 +76,20 @@ export default function SettingsPage() {
     try {
       const dbId = await ensureUser();
 
-      const { error } = await supabase.from("user_settings").upsert(
-        { user_id: dbId, notify_days: selected, target_group: targetGroup },
-        { onConflict: "user_id" }
-      );
-      if (error) throw error;
+      // Check if settings already exist
+      const { data: existingSettings } = await supabase
+        .from("user_settings").select("id").eq("user_id", dbId).maybeSingle();
+
+      if (existingSettings) {
+        const { error } = await supabase.from("user_settings")
+          .update({ notify_days: selected, target_group: targetGroup })
+          .eq("user_id", dbId);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from("user_settings")
+          .insert({ user_id: dbId, notify_days: selected, target_group: targetGroup });
+        if (error) throw error;
+      }
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     } catch (err: any) {

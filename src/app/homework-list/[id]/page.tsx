@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useParams } from "next/navigation";
 import { useLiff } from "@/lib/liff-provider";
 import { supabase } from "@/lib/supabase";
-import { ArrowLeft, BookOpen, CalendarDays, Clock, Users, CheckCircle2, User, Send } from "lucide-react";
+import { ArrowLeft, BookOpen, CalendarDays, Clock, Users, CheckCircle2, User, Send, Edit2, Bold, Italic, Heading, List, Link2, X } from "lucide-react";
 import MarkdownRenderer from "@/components/MarkdownRenderer";
 
 type Homework = {
@@ -38,7 +38,59 @@ export default function HomeworkDetailPage() {
   const [readUsers, setReadUsers] = useState<ReadUser[]>([]);
   const [loadingStatus, setLoadingStatus] = useState(false);
 
+  // Edit Description
+  const [isEditingDescription, setIsEditingDescription] = useState(false);
+  const [editDescriptionContent, setEditDescriptionContent] = useState("");
+  const [savingDesc, setSavingDesc] = useState(false);
+  const textAreaRef = useRef<HTMLTextAreaElement>(null);
+  const MAX_DESC = 1000;
+
   useEffect(() => { if (isReady && userId && hwId) loadData(); }, [isReady, userId, hwId]);
+
+  const insertFormat = (format: string) => {
+    const textarea = textAreaRef.current;
+    if (!textarea) return;
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const selectedText = editDescriptionContent.substring(start, end);
+    let newText = "";
+    let newCursorPos = start;
+    if (format === 'bold') {
+      newText = `**${selectedText || 'ข้อความ'}**`;
+      newCursorPos = start + 2 + (selectedText ? selectedText.length : 0);
+    } else if (format === 'italic') {
+      newText = `_${selectedText || 'ข้อความ'}_`;
+      newCursorPos = start + 1 + (selectedText ? selectedText.length : 0);
+    } else if (format === 'heading') {
+      newText = `\n# ${selectedText || 'หัวข้อ'}`;
+      newCursorPos = start + 3 + (selectedText ? selectedText.length : 0);
+    } else if (format === 'list') {
+      newText = `\n- ${selectedText || 'รายการ'}`;
+      newCursorPos = start + 3 + (selectedText ? selectedText.length : 0);
+    } else if (format === 'link') {
+      newText = `[${selectedText || 'ข้อความ'}](url)`;
+      newCursorPos = start + 1 + (selectedText ? selectedText.length : 0);
+    }
+    const newContent = editDescriptionContent.substring(0, start) + newText + editDescriptionContent.substring(end);
+    if (newContent.length <= MAX_DESC) {
+      setEditDescriptionContent(newContent);
+      setTimeout(() => { textarea.focus(); textarea.setSelectionRange(newCursorPos, newCursorPos); }, 0);
+    }
+  };
+
+  const handleSaveDescription = async () => {
+    setSavingDesc(true);
+    try {
+      const { error } = await supabase.from("homeworks").update({ description: editDescriptionContent }).eq("id", hwId);
+      if (error) throw error;
+      setHw((prev) => prev ? { ...prev, description: editDescriptionContent } : prev);
+      setIsEditingDescription(false);
+    } catch (err: any) {
+      alert("บันทึกไม่สำเร็จ: " + (err.message || ""));
+    } finally {
+      setSavingDesc(false);
+    }
+  };
 
   const loadData = async () => {
     try {
@@ -146,13 +198,55 @@ export default function HomeworkDetailPage() {
           </div>
 
           {/* Description body */}
-          {hw.description ? (
-            <div style={{ background: "#F8FAFC", padding: 16, borderRadius: 12, border: "1px solid #E2E8F0", marginBottom: 16 }}>
-              <MarkdownRenderer content={hw.description} />
+          {isEditingDescription ? (
+            <div style={{ background: "#F8FAFC", padding: "16px", borderRadius: 12, border: "1px solid #E2E8F0", marginBottom: 16 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                <div style={{ display: "flex", gap: 4, background: "#fff", padding: "2px", borderRadius: 6, border: "1px solid #E2E8F0" }}>
+                  <button onClick={(e) => {e.preventDefault(); insertFormat('bold');}} style={{ background: "none", border: "none", padding: 4, cursor: "pointer", borderRadius: 4 }} title="ตัวหนา"><Bold size={14} color="#475569" /></button>
+                  <button onClick={(e) => {e.preventDefault(); insertFormat('italic');}} style={{ background: "none", border: "none", padding: 4, cursor: "pointer", borderRadius: 4 }} title="ตัวเอียง"><Italic size={14} color="#475569" /></button>
+                  <button onClick={(e) => {e.preventDefault(); insertFormat('heading');}} style={{ background: "none", border: "none", padding: 4, cursor: "pointer", borderRadius: 4 }} title="หัวข้อ"><Heading size={14} color="#475569" /></button>
+                  <button onClick={(e) => {e.preventDefault(); insertFormat('list');}} style={{ background: "none", border: "none", padding: 4, cursor: "pointer", borderRadius: 4 }} title="รายการ"><List size={14} color="#475569" /></button>
+                  <button onClick={(e) => {e.preventDefault(); insertFormat('link');}} style={{ background: "none", border: "none", padding: 4, cursor: "pointer", borderRadius: 4 }} title="ลิงก์"><Link2 size={14} color="#475569" /></button>
+                </div>
+                <button onClick={() => setIsEditingDescription(false)} style={{ background: "none", border: "none", cursor: "pointer", color: "#94A3B8" }}><X size={16} /></button>
+              </div>
+              <textarea 
+                ref={textAreaRef} 
+                value={editDescriptionContent}
+                onChange={(e) => { if (e.target.value.length <= MAX_DESC) setEditDescriptionContent(e.target.value); }}
+                rows={5} 
+                style={{ width: "100%", padding: "10px", border: "1px solid #E2E8F0", borderRadius: 8, fontSize: 14, outline: "none", resize: "none", boxSizing: "border-box", fontFamily: "inherit" }} 
+              />
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 8 }}>
+                <div style={{ fontSize: 12, color: "#94A3B8" }}>
+                  รองรับ <a href="https://www.markdownguide.org/cheat-sheet/" target="_blank" rel="noreferrer" style={{ color: "#2563EB", textDecoration: "none" }}>Markdown</a> ({editDescriptionContent.length}/{MAX_DESC})
+                </div>
+                <button 
+                  onClick={handleSaveDescription} 
+                  disabled={savingDesc}
+                  style={{ background: "#495ca4", color: "#fff", border: "none", padding: "6px 16px", borderRadius: 50, fontSize: 13, fontWeight: 600, cursor: savingDesc ? "not-allowed" : "pointer" }}>
+                  {savingDesc ? "กำลังบันทึก..." : "บันทึก"}
+                </button>
+              </div>
             </div>
           ) : (
-            <div style={{ background: "#F8FAFC", padding: 16, borderRadius: 12, border: "1px solid #E2E8F0", marginBottom: 16, textAlign: "center" }}>
-              <span style={{ color: "#94A3B8", fontStyle: "italic", fontSize: 14 }}>ไม่มีรายละเอียดเพิ่มเติม</span>
+            <div style={{ position: "relative", background: "#F8FAFC", padding: 16, borderRadius: 12, border: "1px solid #E2E8F0", marginBottom: 16 }}>
+              {isCreator && (
+                <button 
+                  onClick={() => { setEditDescriptionContent(hw.description || ""); setIsEditingDescription(true); }}
+                  style={{ position: "absolute", top: 12, right: 12, background: "#fff", border: "1px solid #E2E8F0", padding: "4px 8px", borderRadius: 6, cursor: "pointer", display: "flex", alignItems: "center", gap: 4, fontSize: 12, color: "#475569" }}>
+                  <Edit2 size={12} /> แก้ไข
+                </button>
+              )}
+              {hw.description ? (
+                <div style={isCreator ? { marginTop: 12 } : {}}>
+                  <MarkdownRenderer content={hw.description} />
+                </div>
+              ) : (
+                <div style={{ textAlign: "center", padding: "10px 0" }}>
+                  <span style={{ color: "#94A3B8", fontStyle: "italic", fontSize: 14 }}>ไม่มีรายละเอียดเพิ่มเติม</span>
+                </div>
+              )}
             </div>
           )}
         </div>
