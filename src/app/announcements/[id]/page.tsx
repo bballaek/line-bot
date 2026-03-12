@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import { useLiff } from "@/lib/liff-provider";
 import { supabase } from "@/lib/supabase";
 import { ArrowLeft, Megaphone, CalendarDays, FileEdit, AlertCircle, Bell, CheckCircle2, User } from "lucide-react";
+import MarkdownRenderer from "@/components/MarkdownRenderer";
 
 type Announcement = {
   id: string; title: string; content: string; pinned: boolean; created_at: string;
@@ -126,8 +127,8 @@ export default function AnnouncementDetailPage() {
 
           {/* Content body */}
           {ann.content && (
-            <div style={{ fontSize: 14, color: "#334155", lineHeight: 1.8, whiteSpace: "pre-wrap", marginBottom: 16 }}>
-              {ann.content}
+            <div style={{ marginBottom: 16 }}>
+              <MarkdownRenderer content={ann.content} />
             </div>
           )}
 

@@ -3,6 +3,77 @@ import { messagingApi } from '@line/bot-sdk';
 
 const { MessagingApiClient } = messagingApi;
 
+function stripMarkdown(text: string) {
+  if (!text) return '';
+  return text
+    .replace(/\*\*(.*?)\*\*/g, '$1')
+    .replace(/_(.*?)_/g, '$1')
+    .replace(/\[(.*?)\]\(.*?\)/g, '$1')
+    .replace(/^#{1,3}\s/gm, '')
+    .replace(/^- /gm, '');
+}
+
+function parseInlineMarkdown(text: string): any[] {
+  const spans: any[] = [];
+  const regex = /(\*\*.*?\*\*|\[.*?\]\(.*?\)|_.*?_)/g;
+  const parts = text.split(regex);
+
+  for (const p of parts) {
+    if (!p) continue;
+    if (p.startsWith('**') && p.endsWith('**')) {
+      spans.push({ type: 'span', text: p.slice(2, -2), weight: 'bold' });
+    } else if (p.startsWith('_') && p.endsWith('_')) {
+      spans.push({ type: 'span', text: p.slice(1, -1), style: 'italic' });
+    } else if (p.startsWith('[') && p.includes('](') && p.endsWith(')')) {
+      const match = p.match(/\[(.*?)\]\((.*?)\)/);
+      if (match) {
+        spans.push({ type: 'span', text: match[1], color: '#2563EB', decoration: 'underline' });
+      } else {
+        spans.push({ type: 'span', text: p });
+      }
+    } else {
+      spans.push({ type: 'span', text: p });
+    }
+  }
+  return spans;
+}
+
+function convertMarkdownToFlexContents(text: string, maxLength: number = 300): any[] {
+  let processText = text;
+  if (processText.length > maxLength) {
+    processText = processText.substring(0, maxLength) + '...';
+  }
+
+  const lines = processText.split('\n');
+  const flexContents: any[] = [];
+
+  for (let line of lines) {
+    line = line.trim();
+    if (!line) continue;
+
+    if (line.match(/^#{1,3}\s/)) {
+      const headingText = line.replace(/^#{1,3}\s/, '');
+      flexContents.push({
+        type: 'text', text: headingText, weight: 'bold', size: 'md', color: '#111111', margin: 'md', wrap: true
+      });
+    } else if (line.startsWith('- ')) {
+      const listItemText = line.substring(2);
+      flexContents.push({
+        type: 'box', layout: 'horizontal', margin: 'md', alignItems: 'flex-start',
+        contents: [
+          { type: 'text', text: '•', size: 'sm', color: '#1565c0', flex: 0, margin: 'sm', weight: 'bold' },
+          { type: 'text', size: 'sm', color: '#555555', wrap: true, margin: 'sm', contents: parseInlineMarkdown(listItemText) }
+        ]
+      });
+    } else {
+      flexContents.push({
+        type: 'text', size: 'sm', color: '#555555', wrap: true, margin: 'md', contents: parseInlineMarkdown(line)
+      });
+    }
+  }
+  return flexContents;
+}
+
 export async function POST(req: NextRequest) {
   try {
     const client = new MessagingApiClient({
@@ -37,7 +108,7 @@ export async function POST(req: NextRequest) {
               ],
             },
             ...(ann.content ? [{
-              type: 'text' as const, text: ann.content.length > 60 ? ann.content.substring(0, 60) + '...' : ann.content,
+              type: 'text' as const, text: stripMarkdown(ann.content).length > 60 ? stripMarkdown(ann.content).substring(0, 60) + '...' : stripMarkdown(ann.content),
               size: 'sm' as const, color: '#666666', wrap: true, margin: 'md' as const,
             }] : []),
           ],
@@ -92,10 +163,7 @@ export async function POST(req: NextRequest) {
       ];
 
       if (announcement.content) {
-        cardContents.push({
-          type: 'text', text: announcement.content.length > 300 ? announcement.content.substring(0, 300) + '...' : announcement.content,
-          size: 'sm', color: '#555555', wrap: true, margin: 'md',
-        });
+        cardContents.push(...convertMarkdownToFlexContents(announcement.content, 400));
       }
 
       if (announcement.event_date) {

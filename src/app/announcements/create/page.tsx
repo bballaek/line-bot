@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState, useRef } from "react";
 import { useLiff } from "@/lib/liff-provider";
 import { supabase } from "@/lib/supabase";
-import { ArrowLeft, Upload, Megaphone, AlignLeft, CalendarDays, Link2, Paperclip, FileEdit, AlertCircle, Check, Clock3, X, Users, MessageSquare, ChevronRight, Send } from "lucide-react";
+import { ArrowLeft, Upload, Megaphone, AlignLeft, CalendarDays, Link2, Paperclip, FileEdit, AlertCircle, Check, Clock3, X, Users, MessageSquare, ChevronRight, Send, Bold, Italic, Heading, List, Eye, Edit2 } from "lucide-react";
+import MarkdownRenderer from "@/components/MarkdownRenderer";
 
 type Group = { id: string; line_group_id: string; group_name: string };
 
@@ -16,6 +17,45 @@ export default function CreateAnnouncementPage() {
   const [linkUrl, setLinkUrl] = useState("");
   const [annType, setAnnType] = useState<"info" | "action">("info");
   const [loading, setLoading] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
+  const textAreaRef = useRef<HTMLTextAreaElement>(null);
+
+  const insertFormat = (format: string) => {
+    const textarea = textAreaRef.current;
+    if (!textarea) return;
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const selectedText = content.substring(start, end);
+    let newText = "";
+    let newCursorPos = start;
+
+    if (format === 'bold') {
+      newText = `**${selectedText || 'ข้อความ'}**`;
+      newCursorPos = start + 2 + (selectedText ? selectedText.length : 0);
+    } else if (format === 'italic') {
+      newText = `_${selectedText || 'ข้อความ'}_`;
+      newCursorPos = start + 1 + (selectedText ? selectedText.length : 0);
+    } else if (format === 'heading') {
+      newText = `\n# ${selectedText || 'หัวข้อ'}`;
+      newCursorPos = start + 3 + (selectedText ? selectedText.length : 0);
+    } else if (format === 'list') {
+      newText = `\n- ${selectedText || 'รายการ'}`;
+      newCursorPos = start + 3 + (selectedText ? selectedText.length : 0);
+    } else if (format === 'link') {
+      newText = `[${selectedText || 'ข้อความ'}](url)`;
+      newCursorPos = start + 1 + (selectedText ? selectedText.length : 0);
+    }
+
+    const newContent = content.substring(0, start) + newText + content.substring(end);
+    if (newContent.length <= MAX_CONTENT) {
+      setContent(newContent);
+      setTimeout(() => {
+        textarea.focus();
+        textarea.setSelectionRange(newCursorPos, newCursorPos);
+      }, 0);
+    }
+  };
 
   const [showPopup, setShowPopup] = useState(false);
   const [popupStep, setPopupStep] = useState<"main" | "groups">("main");
@@ -104,11 +144,37 @@ export default function CreateAnnouncementPage() {
         <div style={{ marginBottom: 16 }}>
           <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
             <label style={{ ...labelStyle, marginBottom: 0 }}><AlignLeft size={14} /> รายละเอียดประกาศ</label>
-            <span style={{ fontSize: 12, color: "#CBD5E1" }}>{content.length}/{MAX_CONTENT}</span>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              {!showPreview && (
+                <div style={{ display: "flex", gap: 4, background: "#F1F5F9", padding: "2px", borderRadius: 6 }}>
+                  <button onClick={(e) => {e.preventDefault(); insertFormat('bold');}} style={{ background: "none", border: "none", padding: 4, cursor: "pointer", borderRadius: 4 }} title="ตัวหนา"><Bold size={14} color="#475569" /></button>
+                  <button onClick={(e) => {e.preventDefault(); insertFormat('italic');}} style={{ background: "none", border: "none", padding: 4, cursor: "pointer", borderRadius: 4 }} title="ตัวเอียง"><Italic size={14} color="#475569" /></button>
+                  <button onClick={(e) => {e.preventDefault(); insertFormat('heading');}} style={{ background: "none", border: "none", padding: 4, cursor: "pointer", borderRadius: 4 }} title="หัวข้อ"><Heading size={14} color="#475569" /></button>
+                  <button onClick={(e) => {e.preventDefault(); insertFormat('list');}} style={{ background: "none", border: "none", padding: 4, cursor: "pointer", borderRadius: 4 }} title="รายการ"><List size={14} color="#475569" /></button>
+                  <button onClick={(e) => {e.preventDefault(); insertFormat('link');}} style={{ background: "none", border: "none", padding: 4, cursor: "pointer", borderRadius: 4 }} title="รายการ"><Link2 size={14} color="#475569" /></button>
+                </div>
+              )}
+              <button 
+                onClick={(e) => {e.preventDefault(); setShowPreview(!showPreview);}} 
+                style={{ background: "#E2E8F0", border: "none", padding: "4px 8px", cursor: "pointer", borderRadius: 4, display: "flex", alignItems: "center", gap: 4, fontSize: 12, fontWeight: 600, color: "#475569" }}>
+                {showPreview ? <><Edit2 size={12} /> แก้ไข</> : <><Eye size={12} /> ดูตัวอย่าง</>}
+              </button>
+            </div>
           </div>
-          <textarea placeholder="รายละเอียดเพิ่มเติมเกี่ยวกับประกาศ..." value={content}
-            onChange={(e) => { if (e.target.value.length <= MAX_CONTENT) setContent(e.target.value); }}
-            rows={5} style={{ ...inputStyle, resize: "none", lineHeight: 1.6, fontSize: 14 }} />
+          {showPreview ? (
+            <div style={{ ...inputStyle, minHeight: 120, border: "1px solid #E2E8F0", background: "#F8FAFC" }}>
+              {content ? <MarkdownRenderer content={content} /> : <span style={{ color: "#94A3B8", fontSize: 14 }}>ยังไม่มีข้อความ...</span>}
+            </div>
+          ) : (
+            <>
+              <textarea ref={textAreaRef} placeholder="รายละเอียดเพิ่มเติมเกี่ยวกับประกาศ..." value={content}
+                onChange={(e) => { if (e.target.value.length <= MAX_CONTENT) setContent(e.target.value); }}
+                rows={5} style={{ ...inputStyle, resize: "none", lineHeight: 1.6, fontSize: 14 }} />
+              <div style={{ textAlign: "right", marginTop: 4, fontSize: 12, color: "#94A3B8" }}>
+                รอบรับการจัดรูปแบบด้วย <a href="https://www.markdownguide.org/cheat-sheet/" target="_blank" rel="noreferrer" style={{ color: "#2563EB", textDecoration: "none" }}>Markdown</a> ({content.length}/{MAX_CONTENT})
+              </div>
+            </>
+          )}
         </div>
 
         <div style={{ marginBottom: 16 }}>

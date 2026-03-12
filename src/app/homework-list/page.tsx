@@ -117,7 +117,7 @@ export default function HomeworkListPage() {
   return (
     <div style={{ minHeight: "100vh", background: "#F0F4FA", paddingBottom: 80 }}>
       {/* Header */}
-      <div style={{ background: "#2563EB", padding: "18px 20px 16px", borderRadius: "0 0 20px 20px" }}>
+      <div style={{ background: "#495ca4", padding: "18px 20px 16px", borderRadius: "0 0 20px 20px" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <ClipboardList size={22} color="#fff" />

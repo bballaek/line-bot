@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useLiff } from "@/lib/liff-provider";
 import { supabase } from "@/lib/supabase";
 import { Megaphone, Plus, CalendarDays, ChevronRight, AlertCircle, FileEdit, Send, X, MessageSquare, Users, ArrowLeft } from "lucide-react";
+import MarkdownRenderer from "@/components/MarkdownRenderer";
 
 type Announcement = {
   id: string; title: string; content: string; pinned: boolean; created_at: string;
@@ -102,10 +103,10 @@ export default function AnnouncementsPage() {
           </div>
         </div>
         {ann.content && (
-          <p onClick={() => (window.location.href = `/announcements/${ann.id}`)}
-            style={{ fontSize: 13, color: isPinned ? "#78716C" : "#64748B", margin: "0 0 8px", lineHeight: 1.5, cursor: "pointer", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
-            {ann.content}
-          </p>
+          <div onClick={() => (window.location.href = `/announcements/${ann.id}`)}
+            style={{ margin: "0 0 8px", cursor: "pointer", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+            <MarkdownRenderer content={ann.content} isPreview={true} />
+          </div>
         )}
         <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: isPinned ? "#B45309" : "#94A3B8" }}>
           <CalendarDays size={11} /> {timeAgo(ann.created_at)}
@@ -117,7 +118,7 @@ export default function AnnouncementsPage() {
   return (
     <div style={{ minHeight: "100vh", background: "#F0F4FA", paddingBottom: 80 }}>
       {/* Header */}
-      <div style={{ background: "#2563EB", padding: "18px 20px 16px", borderRadius: "0 0 20px 20px" }}>
+      <div style={{ background: "#495ca4", padding: "18px 20px 16px", borderRadius: "0 0 20px 20px" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <Megaphone size={22} color="#fff" />

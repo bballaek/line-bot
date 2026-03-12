@@ -57,7 +57,7 @@ export default function HelpPage() {
   return (
     <div style={{ minHeight: "100vh", background: "#F0F4FA" }}>
       {/* Header */}
-      <div style={{ background: "#2563EB", padding: "18px 20px 16px", borderRadius: "0 0 20px 20px" }}>
+      <div style={{ background: "#495ca4", padding: "18px 20px 16px", borderRadius: "0 0 20px 20px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <button onClick={() => window.history.back()} style={{ background: "none", border: "none", cursor: "pointer", color: "#fff", display: "flex", alignItems: "center" }}>
             <ArrowLeft size={22} />
