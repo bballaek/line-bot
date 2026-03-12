@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useLiff } from "@/lib/liff-provider";
 import { supabase } from "@/lib/supabase";
 import { ClipboardList, Plus, CheckCircle2, Send, X, MessageSquare, Users, ChevronRight, ArrowLeft, Clock, BookOpen } from "lucide-react";
+import MarkdownRenderer from "@/components/MarkdownRenderer";
 
 type Homework = {
   id: string; subject: string; title: string; description: string;
@@ -215,9 +216,9 @@ export default function HomeworkListPage() {
                             </div>
 
                             {hw.description && (
-                              <p style={{ fontSize: 13, color: "#64748B", margin: "0 0 8px", lineHeight: 1.5, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
-                                {hw.description}
-                              </p>
+                              <div style={{ margin: "0 0 8px", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+                                <MarkdownRenderer content={hw.description} isPreview={true} />
+                              </div>
                             )}
 
                             {hw.due_date && (
@@ -294,8 +295,8 @@ export default function HomeworkListPage() {
                 )}
               </div>
 
-              <div style={{ fontSize: 15, color: "#475569", lineHeight: 1.7, whiteSpace: "pre-wrap", background: "#F8FAFC", padding: 20, borderRadius: 12, border: "1px solid #E2E8F0" }}>
-                {readingHw.description || <span style={{ color: "#94A3B8", fontStyle: "italic" }}>ไม่มีรายละเอียดเพิ่มเติมชิ้นนี้</span>}
+              <div style={{ background: "#F8FAFC", padding: 20, borderRadius: 12, border: "1px solid #E2E8F0" }}>
+                {readingHw.description ? <MarkdownRenderer content={readingHw.description} /> : <span style={{ color: "#94A3B8", fontStyle: "italic" }}>ไม่มีรายละเอียดเพิ่มเติมชิ้นนี้</span>}
               </div>
             </div>
           </div>
