@@ -182,22 +182,22 @@ export default function CreateAnnouncementPage() {
         </div>
 
         <div style={{ marginBottom: 16 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8, padding: "0 4px" }}>
-            <label style={{ ...labelStyle, marginBottom: 0 }}><AlignLeft size={16} /> รายละเอียดประกาศ</label>
-            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+            <label style={{ ...labelStyle, marginBottom: 0 }}><AlignLeft size={14} /> รายละเอียดประกาศ</label>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               {!showPreview && (
-                <div style={{ display: "flex", gap: 4 }}>
-                  <button onClick={(e) => {e.preventDefault(); insertFormat('bold');}} style={{ background: "none", border: "none", padding: 4, cursor: "pointer" }} title="ตัวหนา"><Bold size={16} color="#475569" /></button>
-                  <button onClick={(e) => {e.preventDefault(); insertFormat('italic');}} style={{ background: "none", border: "none", padding: 4, cursor: "pointer" }} title="ตัวเอียง"><Italic size={16} color="#475569" /></button>
-                  <button onClick={(e) => {e.preventDefault(); insertFormat('heading');}} style={{ background: "none", border: "none", padding: 4, cursor: "pointer" }} title="หัวข้อ"><Heading size={16} color="#475569" /></button>
-                  <button onClick={(e) => {e.preventDefault(); insertFormat('list');}} style={{ background: "none", border: "none", padding: 4, cursor: "pointer" }} title="รายการ"><List size={16} color="#475569" /></button>
-                  <button onClick={(e) => {e.preventDefault(); insertFormat('link');}} style={{ background: "none", border: "none", padding: 4, cursor: "pointer" }} title="รายการ"><Link2 size={16} color="#475569" /></button>
+                <div style={{ display: "flex", gap: 4, background: "#F1F5F9", padding: "2px", borderRadius: 6 }}>
+                  <button onClick={(e) => {e.preventDefault(); insertFormat('bold');}} style={{ background: "none", border: "none", padding: 4, cursor: "pointer", borderRadius: 4 }} title="ตัวหนา"><Bold size={14} color="#475569" /></button>
+                  <button onClick={(e) => {e.preventDefault(); insertFormat('italic');}} style={{ background: "none", border: "none", padding: 4, cursor: "pointer", borderRadius: 4 }} title="ตัวเอียง"><Italic size={14} color="#475569" /></button>
+                  <button onClick={(e) => {e.preventDefault(); insertFormat('heading');}} style={{ background: "none", border: "none", padding: 4, cursor: "pointer", borderRadius: 4 }} title="หัวข้อ"><Heading size={14} color="#475569" /></button>
+                  <button onClick={(e) => {e.preventDefault(); insertFormat('list');}} style={{ background: "none", border: "none", padding: 4, cursor: "pointer", borderRadius: 4 }} title="รายการ"><List size={14} color="#475569" /></button>
+                  <button onClick={(e) => {e.preventDefault(); insertFormat('link');}} style={{ background: "none", border: "none", padding: 4, cursor: "pointer", borderRadius: 4 }} title="รายการ"><Link2 size={14} color="#475569" /></button>
                 </div>
               )}
               <button 
                 onClick={(e) => {e.preventDefault(); setShowPreview(!showPreview);}} 
-                style={{ background: "#E2E8F0", border: "none", padding: "6px 10px", cursor: "pointer", borderRadius: 6, display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 600, color: "#1E293B" }}>
-                {showPreview ? <><Edit2 size={14} /> แก้ไข</> : <><Eye size={14} /> ดูตัวอย่าง</>}
+                style={{ background: "#E2E8F0", border: "none", padding: "4px 8px", cursor: "pointer", borderRadius: 4, display: "flex", alignItems: "center", gap: 4, fontSize: 12, fontWeight: 600, color: "#475569" }}>
+                {showPreview ? <><Edit2 size={12} /> แก้ไข</> : <><Eye size={12} /> ดูตัวอย่าง</>}
               </button>
             </div>
           </div>
