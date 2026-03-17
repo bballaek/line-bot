@@ -48,8 +48,13 @@ export default function AnnouncementsPage() {
   const fetchAnnouncements = async () => {
     try {
       setLoading(true);
+      if (!userId) return;
+      const { data: userData } = await supabase.from("users").select("id").eq("line_user_id", userId).single();
+      if (!userData) return;
+
       const { data, error } = await supabase
         .from("announcements").select("id, title, content, pinned, created_at")
+        .eq("created_by", userData.id)
         .order("created_at", { ascending: false });
       if (error) throw error;
       setItems(data || []);

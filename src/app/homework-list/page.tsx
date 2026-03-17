@@ -72,6 +72,7 @@ export default function HomeworkListPage() {
 
       const { data, error } = await supabase.from("homeworks")
         .select("id, subject, title, description, target_group, created_by, due_date, created_at, user_homeworks ( status )")
+        .eq("created_by", userData.id)
         .order("due_date", { ascending: false });
 
       if (error) throw error;
