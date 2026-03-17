@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useLiff } from "@/lib/liff-provider";
 import { supabase } from "@/lib/supabase";
-import { ClipboardList, Plus, CheckCircle2, Send, X, MessageSquare, Users, ChevronRight, ArrowLeft, Clock, BookOpen } from "lucide-react";
+import { ClipboardList, Plus, CheckCircle2, Send, X, MessageSquare, Users, ChevronRight, ArrowLeft, Clock, BookOpen, CalendarDays } from "lucide-react";
 import MarkdownRenderer from "@/components/MarkdownRenderer";
 
 type Homework = {
@@ -126,6 +126,9 @@ export default function HomeworkListPage() {
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <span style={{ color: "#93C5FD", fontSize: 13 }}>{homeworks.length} รายการ</span>
+            <button onClick={() => (window.location.href = "/schedule")} style={{ background: "rgba(255,255,255,0.2)", border: "none", borderRadius: 8, padding: "4px 10px", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 4 }}>
+              <CalendarDays size={12} /> ตารางเรียน
+            </button>
             {homeworks.length > 0 && homeworks.some(hw => hw.created_by === currentDbUserId) && (
               <button onClick={openSendDaily} style={{ background: "rgba(255,255,255,0.2)", border: "none", borderRadius: 8, padding: "4px 10px", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 4 }}>
                 <Send size={12} /> ส่งรายงาน
