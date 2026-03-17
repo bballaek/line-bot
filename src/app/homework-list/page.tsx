@@ -135,6 +135,20 @@ export default function HomeworkListPage() {
         </div>
       </div>
 
+      {/* Current Date/Time */}
+      <div style={{ textAlign: "center", padding: "14px 16px 0", fontSize: 15, fontWeight: 600, color: "#1E293B" }}>
+        {(() => {
+          const now = new Date();
+          const day = THAI_DAYS[now.getDay()];
+          const date = now.getDate();
+          const month = THAI_MONTHS_LONG[now.getMonth()];
+          const year = toBE(now.getFullYear());
+          const hours = String(now.getHours()).padStart(2, "0");
+          const minutes = String(now.getMinutes()).padStart(2, "0");
+          return `วัน${day} ที่ ${date} ${month} ${year} เวลา ${hours}:${minutes} น.`;
+        })()}
+      </div>
+
       {/* Target Group Filter (Segmented Control) */}
       <div style={{ padding: "16px 16px 0", display: "flex", justifyContent: "center" }}>
         <div style={{ display: "flex", background: "#E2E8F0", borderRadius: 20, padding: 4, width: "100%", maxWidth: 320 }}>

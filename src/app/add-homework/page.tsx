@@ -3,7 +3,7 @@
 import React, { useState, useRef } from "react";
 import { useLiff } from "@/lib/liff-provider";
 import { supabase } from "@/lib/supabase";
-import { ArrowLeft, Upload, BookOpen, FileText, AlignLeft, CalendarDays, Link2, Paperclip, Users, User, Check, Clock3, X, Send, MessageSquare, ChevronRight, Bold, Italic, Heading, List, Eye, Edit2 } from "lucide-react";
+import { ArrowLeft, Upload, BookOpen, FileText, AlignLeft, CalendarDays, Link2, Paperclip, Users, User, Check, Clock3, X, Send, MessageSquare, ChevronRight, Bold, Italic, Heading, List, Eye, Edit2, Trash2 } from "lucide-react";
 import MarkdownRenderer from "@/components/MarkdownRenderer";
 
 type Group = { id: string; line_group_id: string; group_name: string };
@@ -21,6 +21,9 @@ export default function AddHomeworkPage() {
   const [loading, setLoading] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const textAreaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [attachedFiles, setAttachedFiles] = useState<{name: string; url: string; size: number}[]>([]);
+  const [uploading, setUploading] = useState(false);
 
   const insertFormat = (format: string) => {
     const textarea = textAreaRef.current;
@@ -106,7 +109,34 @@ export default function AddHomeworkPage() {
     finally { setSending(false); }
   };
 
-  const resetForm = () => { setShowPopup(false); setSubject(""); setTitle(""); setDescription(""); setDueDate(""); setDueTime("00:00"); setLinkUrl(""); setTargetGroup("All"); setSavedHw(null); };
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    if (attachedFiles.length + files.length > 4) { alert('สูงสุด 4 ไฟล์เท่านั้น'); return; }
+    setUploading(true);
+    try {
+      for (const file of Array.from(files)) {
+        if (file.size > 50 * 1024 * 1024) { alert(`ไฟล์ ${file.name} ขนาดใหญ่เกินไป (สูงสุด 50MB)`); continue; }
+        const ext = file.name.split('.').pop();
+        const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${ext}`;
+        const { error: uploadError } = await supabase.storage.from('homework-files').upload(fileName, file, { contentType: file.type });
+        if (uploadError) { alert('อัปโหลดไม่สำเร็จ: ' + uploadError.message); continue; }
+        const { data: urlData } = supabase.storage.from('homework-files').getPublicUrl(fileName);
+        setAttachedFiles(prev => [...prev, { name: file.name, url: urlData.publicUrl, size: file.size }]);
+      }
+    } catch (err: any) { alert('อัปโหลดไม่สำเร็จ: ' + (err.message || '')); }
+    finally { setUploading(false); if (fileInputRef.current) fileInputRef.current.value = ''; }
+  };
+
+  const removeFile = (index: number) => { setAttachedFiles(prev => prev.filter((_, i) => i !== index)); };
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  };
+
+  const resetForm = () => { setShowPopup(false); setSubject(""); setTitle(""); setDescription(""); setDueDate(""); setDueTime("00:00"); setLinkUrl(""); setTargetGroup("All"); setSavedHw(null); setAttachedFiles([]); };
 
   const inputStyle: React.CSSProperties = { width: "100%", padding: "12px 14px", border: "1px solid #E2E8F0", borderRadius: 10, fontSize: 15, background: "#fff", outline: "none", boxSizing: "border-box" };
   const labelStyle: React.CSSProperties = { display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 600, color: "#475569", marginBottom: 6 };
@@ -187,11 +217,28 @@ export default function AddHomeworkPage() {
 
         <div style={{ marginBottom: 16 }}>
           <label style={labelStyle}><Paperclip size={14} /> เอกสารแนบ</label>
-          <div style={{ border: "1px dashed #CBD5E1", borderRadius: 12, padding: "24px 20px", textAlign: "center", background: "#FAFBFC" }}>
-            <Upload size={24} color="#94A3B8" style={{ marginBottom: 6 }} />
-            <div style={{ fontSize: 13, color: "#64748B", fontWeight: 500 }}>อัปโหลดไฟล์</div>
-            <div style={{ fontSize: 11, color: "#CBD5E1", marginTop: 2 }}>(สูงสุด 4 ไฟล์ ไฟล์ละไม่เกิน 50MB)</div>
-          </div>
+          <input type="file" ref={fileInputRef} onChange={handleFileUpload} multiple style={{ display: 'none' }} />
+          {attachedFiles.length > 0 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 8 }}>
+              {attachedFiles.map((f, i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 8 }}>
+                  <FileText size={16} color="#2563EB" />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 500, color: '#1E293B', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.name}</div>
+                    <div style={{ fontSize: 11, color: '#94A3B8' }}>{formatFileSize(f.size)}</div>
+                  </div>
+                  <button onClick={() => removeFile(i)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}><Trash2 size={14} color="#E53935" /></button>
+                </div>
+              ))}
+            </div>
+          )}
+          {attachedFiles.length < 4 && (
+            <div onClick={() => !uploading && fileInputRef.current?.click()} style={{ border: '1px dashed #CBD5E1', borderRadius: 12, padding: '24px 20px', textAlign: 'center', background: '#FAFBFC', cursor: uploading ? 'not-allowed' : 'pointer' }}>
+              <Upload size={24} color="#94A3B8" style={{ marginBottom: 6 }} />
+              <div style={{ fontSize: 13, color: '#64748B', fontWeight: 500 }}>{uploading ? 'กำลังอัปโหลด...' : 'อัปโหลดไฟล์'}</div>
+              <div style={{ fontSize: 11, color: '#CBD5E1', marginTop: 2 }}>(สูงสุด 4 ไฟล์ ไฟล์ละไม่เกิน 50MB)</div>
+            </div>
+          )}
         </div>
 
         <div style={{ marginBottom: 16 }}>
