@@ -3,7 +3,19 @@ import { messagingApi } from '@line/bot-sdk';
 
 const { MessagingApiClient } = messagingApi;
 
-const PERIOD_COLORS = ["#FF7043","#42A5F5","#66BB6A","#FFA726","#7E57C2","#26C6DA","#EC407A","#4DB6AC"];
+const THAI_MONTHS = ["ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.","มิ.ย.","ก.ค.","ส.ค.","ก.ย.","ต.ค.","พ.ย.","ธ.ค."];
+const BAR_COLORS = ["#1976D2","#388E3C","#F57C00","#8E24AA","#00838F","#C62828","#5C6BC0","#2E7D32"];
+
+const DEFAULT_TIMES = [
+  { start: "08:30", end: "09:20" },
+  { start: "09:20", end: "10:10" },
+  { start: "10:10", end: "11:00" },
+  { start: "11:00", end: "11:50" },
+  { start: "12:40", end: "13:30" },
+  { start: "13:30", end: "14:20" },
+  { start: "14:20", end: "15:10" },
+  { start: "15:10", end: "16:00" },
+];
 
 export async function POST(req: NextRequest) {
   try {
@@ -15,53 +27,48 @@ export async function POST(req: NextRequest) {
     if (!targetId) return NextResponse.json({ error: 'Missing targetId' }, { status: 400 });
 
     const liffUrl = `https://liff.line.me/${process.env.NEXT_PUBLIC_LIFF_ID}`;
+    const now = new Date();
+    const dateStr = `ตารางเรียนวัน${dayName}ที่ ${now.getDate()} ${THAI_MONTHS[now.getMonth()]}`;
 
-    const DEFAULT_TIMES = [
-      { start: "08:30", end: "09:20" },
-      { start: "09:20", end: "10:10" },
-      { start: "10:10", end: "11:00" },
-      { start: "11:00", end: "11:50" },
-      { start: "12:40", end: "13:30" },
-      { start: "13:30", end: "14:20" },
-      { start: "14:20", end: "15:10" },
-      { start: "15:10", end: "16:00" },
-    ];
-
-    // Build schedule cards for periods 1-8
-    const periodCards: any[] = [];
+    // Build timeline rows
+    const rows: any[] = [];
     for (let p = 1; p <= 8; p++) {
       const sched = schedules.find((s: any) => s.period === p);
-      const color = PERIOD_COLORS[(p - 1) % PERIOD_COLORS.length];
-      const timeStr = sched?.start_time && sched?.end_time
-        ? `${sched.start_time}-${sched.end_time}`
-        : `${DEFAULT_TIMES[p - 1].start}-${DEFAULT_TIMES[p - 1].end}`;
-      const subjectText = sched?.subject || '- ว่าง -';
-      const teacherText = sched?.teacher ? `👤 ${sched.teacher}` : '';
+      if (!sched?.subject) continue; // skip empty periods
 
-      const contents: any[] = [
-        {
-          type: 'box', layout: 'horizontal', alignItems: 'center',
-          contents: [
-            {
-              type: 'box', layout: 'vertical', backgroundColor: sched?.subject ? color : '#E0E0E0',
-              width: '28px', height: '28px', justifyContent: 'center', cornerRadius: '8px',
-              contents: [{ type: 'text', text: String(p), weight: 'bold', color: '#FFFFFF', size: 'sm', align: 'center' }],
-            },
-            {
-              type: 'box', layout: 'vertical', margin: 'md', flex: 1,
-              contents: [
-                { type: 'text', text: subjectText, weight: 'bold', size: 'sm', color: sched?.subject ? '#333333' : '#AAAAAA' },
-                { type: 'text', text: `🕐 ${timeStr}${teacherText ? '  ' + teacherText : ''}`, size: 'xxs', color: '#888888', margin: 'xs' },
-              ],
-            },
-          ],
-        },
-      ];
+      const color = BAR_COLORS[(p - 1) % BAR_COLORS.length];
+      const startTime = sched.start_time || DEFAULT_TIMES[p - 1].start;
+      const endTime = sched.end_time || DEFAULT_TIMES[p - 1].end;
+      const timeStr = `${startTime.replace(':', '.')} - ${endTime.replace(':', '.')} น.`;
+      const subjectLine = sched.teacher ? `${sched.subject} (${sched.teacher})` : sched.subject;
 
-      periodCards.push({
-        type: 'box', layout: 'vertical', margin: 'md',
-        backgroundColor: '#FFFFFF', paddingAll: '12px', cornerRadius: '10px',
-        contents,
+      rows.push({
+        type: 'box', layout: 'horizontal', spacing: 'lg',
+        contents: [
+          {
+            type: 'box', layout: 'vertical', width: '60px', flex: 1, paddingBottom: 'md',
+            contents: [
+              { type: 'text', text: `คาบ ${p}`, size: 'xs', color: '#AAAAAA', weight: 'bold', align: 'end' }
+            ],
+          },
+          {
+            type: 'box', layout: 'vertical', width: '2px', backgroundColor: color,
+            contents: [],
+          },
+          {
+            type: 'box', layout: 'vertical', flex: 4,
+            contents: [
+              { type: 'text', text: subjectLine, weight: 'bold', size: 'md', color: '#111111' },
+              { type: 'text', text: timeStr, size: 'xs', color: '#666666', margin: 'xs' },
+            ],
+          },
+        ],
+      });
+    }
+
+    if (rows.length === 0) {
+      rows.push({
+        type: 'text', text: 'ไม่มีวิชาเรียนในวันนี้', size: 'sm', color: '#999999', align: 'center',
       });
     }
 
@@ -71,29 +78,20 @@ export async function POST(req: NextRequest) {
       contents: {
         type: 'bubble', size: 'mega',
         header: {
-          type: 'box', layout: 'horizontal', backgroundColor: '#b3e5fc', paddingAll: '20px', paddingTop: '25px',
+          type: 'box', layout: 'vertical', backgroundColor: '#FF7F50', paddingAll: 'lg',
           contents: [
-            {
-              type: 'box', layout: 'vertical', flex: 1, justifyContent: 'center',
-              contents: [
-                { type: 'text', text: '📅 Class Schedule', weight: 'bold', color: '#1565c0', size: 'lg' },
-                { type: 'text', text: `ตารางเรียนวัน${dayName}`, weight: 'bold', color: '#455a64', size: 'sm', margin: 'sm' },
-              ],
-            },
-            {
-              type: 'image', url: 'https://cdn-icons-png.flaticon.com/512/2693/2693507.png',
-              size: '60px', aspectMode: 'fit', position: 'absolute', offsetTop: '15px', offsetEnd: '10px',
-            },
+            { type: 'text', text: 'CLASS SCHEDULE', color: '#FFFFFF', weight: 'bold', size: 'md' },
+            { type: 'text', text: dateStr, color: '#FFFFFFCC', size: 'xs', margin: 'xs' },
           ],
         },
         body: {
-          type: 'box', layout: 'vertical', backgroundColor: '#F0F4FA', paddingAll: '10px',
-          contents: periodCards,
+          type: 'box', layout: 'vertical', spacing: 'xl', paddingAll: 'lg',
+          contents: rows,
         },
         footer: {
-          type: 'box', layout: 'vertical', backgroundColor: '#F0F4FA', paddingAll: '15px',
+          type: 'box', layout: 'vertical', paddingAll: 'md',
           contents: [{
-            type: 'button', style: 'primary', color: '#42A5F5', height: 'sm',
+            type: 'button', style: 'primary', color: '#FF7F50', height: 'sm',
             action: { type: 'uri', label: 'ดูตารางเรียน', uri: `${liffUrl}/schedule` },
           }],
         },

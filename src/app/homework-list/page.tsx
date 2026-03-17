@@ -127,11 +127,11 @@ export default function HomeworkListPage() {
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <span style={{ color: "#93C5FD", fontSize: 13 }}>{homeworks.length} รายการ</span>
             <button onClick={() => (window.location.href = "/schedule")} style={{ background: "rgba(255,255,255,0.2)", border: "none", borderRadius: 8, padding: "4px 10px", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 4 }}>
-              <CalendarDays size={12} /> ตารางเรียน
+              <CalendarDays size={12} />
             </button>
             {homeworks.length > 0 && homeworks.some(hw => hw.created_by === currentDbUserId) && (
               <button onClick={openSendDaily} style={{ background: "rgba(255,255,255,0.2)", border: "none", borderRadius: 8, padding: "4px 10px", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 4 }}>
-                <Send size={12} /> ส่งรายงาน
+                <Send size={12} /> 
               </button>
             )}
           </div>
