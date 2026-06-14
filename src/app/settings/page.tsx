@@ -5,7 +5,7 @@ import { useLiff } from "@/lib/liff-provider";
 import { useAppUser } from "@/hooks/useAppUser";
 import { supabase } from "@/lib/supabase";
 import { ensureUser } from "@/lib/ensure-user";
-import { groupLabel, NOTIFY_PRESETS } from "@/lib/settings-constants";
+import { groupLabel } from "@/lib/settings-constants";
 import SettingsLayout, { SettingsCard } from "@/components/settings/SettingsLayout";
 import SettingsMenuItem from "@/components/settings/SettingsMenuItem";
 import BottomNav from "@/components/BottomNav";
@@ -13,12 +13,15 @@ import BecomeTeacherCard from "@/components/settings/BecomeTeacherCard";
 import { Users, FolderOpen, Bell, UserCog } from "lucide-react";
 
 export default function SettingsPage() {
-  const { isReady, liffError, userId } = useLiff();
+  const { isReady, liffError, userId, profile } = useLiff();
   const { user, loading: userLoading, canManageIntegrations, refresh } = useAppUser();
   const [targetGroup, setTargetGroup] = useState("All");
   const [notifyCount, setNotifyCount] = useState(0);
   const [googleStatus, setGoogleStatus] = useState<string>("ยังไม่เชื่อมต่อ");
   const [coTeacherCount, setCoTeacherCount] = useState(0);
+
+  const isTeacher = user?.role === "teacher";
+  const showRegister = !isTeacher && !user?.isCoTeacher && !!userId;
 
   useEffect(() => {
     if (isReady && userId) loadSummary();
@@ -26,7 +29,7 @@ export default function SettingsPage() {
 
   const loadSummary = async () => {
     try {
-      const dbId = user?.id ?? await ensureUser(userId as string);
+      const dbId = user?.id ?? await ensureUser(userId as string, profile?.displayName);
       const { data: settings } = await supabase
         .from("user_settings")
         .select("target_group, notify_days")
@@ -64,10 +67,24 @@ export default function SettingsPage() {
 
   const notifySubtitle = notifyCount > 0 ? `${notifyCount} รายการที่เลือก` : "ยังไม่ได้ตั้งค่า";
   const coTeacherSubtitle = coTeacherCount > 0 ? `${coTeacherCount} คน` : "ยังไม่มีครูร่วม";
+  const teacherOnlySubtitle = "ลงทะเบียนเป็นครูก่อนใช้งาน";
 
   return (
     <>
     <SettingsLayout title="ตั้งค่า" hideBack>
+      {showRegister && (
+        <div style={{ marginBottom: 20 }}>
+          <BecomeTeacherCard lineUserId={userId!} onSuccess={refresh} />
+        </div>
+      )}
+
+      {user?.role === "student" && user.isCoTeacher && (
+        <p style={{ fontSize: 13, color: "#A1887F", textAlign: "center", marginBottom: 16, lineHeight: 1.6 }}>
+          คุณเป็นครูผู้สอนร่วม — สร้างการบ้านและประกาศได้<br />
+          Google Drive และจัดการครูร่วม สำหรับครูหลักเท่านั้น
+        </p>
+      )}
+
       <SettingsCard>
         <SettingsMenuItem
           icon={<Users size={20} />}
@@ -75,44 +92,26 @@ export default function SettingsPage() {
           subtitle={groupLabel(targetGroup)}
           href="/settings/group"
         />
-        {canManageIntegrations && (
-          <SettingsMenuItem
-            icon={<FolderOpen size={20} />}
-            title="Google Drive"
-            subtitle={googleStatus}
-            href="/settings/google-drive"
-          />
-        )}
+        <SettingsMenuItem
+          icon={<FolderOpen size={20} />}
+          title="Google Drive"
+          subtitle={canManageIntegrations ? googleStatus : teacherOnlySubtitle}
+          href="/settings/google-drive"
+        />
         <SettingsMenuItem
           icon={<Bell size={20} />}
           title="การแจ้งเตือน"
           subtitle={notifySubtitle}
           href="/settings/notifications"
-          isLast={!canManageIntegrations}
         />
-        {canManageIntegrations && (
-          <SettingsMenuItem
-            icon={<UserCog size={20} />}
-            title="ครูผู้สอนร่วม"
-            subtitle={coTeacherSubtitle}
-            href="/settings/co-teachers"
-            isLast
-          />
-        )}
+        <SettingsMenuItem
+          icon={<UserCog size={20} />}
+          title="ครูผู้สอนร่วม"
+          subtitle={canManageIntegrations ? coTeacherSubtitle : teacherOnlySubtitle}
+          href="/settings/co-teachers"
+          isLast
+        />
       </SettingsCard>
-
-      {user?.role === "student" && !user.isCoTeacher && userId && (
-        <div style={{ marginTop: 20 }}>
-          <BecomeTeacherCard lineUserId={userId} onSuccess={refresh} />
-        </div>
-      )}
-
-      {user?.role === "student" && user.isCoTeacher && (
-        <p style={{ fontSize: 13, color: "#A1887F", textAlign: "center", marginTop: 20, lineHeight: 1.6 }}>
-          คุณเป็นครูผู้สอนร่วม — สร้างการบ้านและประกาศได้<br />
-          การเชื่อม Google Drive สำหรับครูหลักเท่านั้น
-        </p>
-      )}
     </SettingsLayout>
     <BottomNav />
     </>

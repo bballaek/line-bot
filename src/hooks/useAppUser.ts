@@ -14,7 +14,7 @@ export type AppUser = {
 };
 
 export function useAppUser() {
-  const { isReady, userId } = useLiff();
+  const { isReady, userId, profile } = useLiff();
   const [user, setUser] = useState<AppUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [reloadKey, setReloadKey] = useState(0);
@@ -33,21 +33,28 @@ export function useAppUser() {
           const profileRes = await fetch("/api/users/sync", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ line_user_id: userId }),
+            body: JSON.stringify({
+              line_user_id: userId,
+              display_name: profile?.displayName,
+              picture_url: profile?.pictureUrl,
+            }),
           });
           if (profileRes.ok) dbUser = (await profileRes.json()).user;
         }
 
         if (!dbUser || cancelled) return;
 
-        const { count } = await supabase
+        const { count, error: coErr } = await supabase
           .from("co_teachers")
           .select("*", { count: "exact", head: true })
           .eq("teacher_id", dbUser.id);
 
+        if (coErr) console.warn("co_teachers query:", coErr.message);
+
         if (!cancelled) {
           setUser({
             ...dbUser,
+            role: dbUser.role === "teacher" ? "teacher" : "student",
             isCoTeacher: (count ?? 0) > 0,
           });
         }
@@ -59,7 +66,7 @@ export function useAppUser() {
     })();
 
     return () => { cancelled = true; };
-  }, [isReady, userId, reloadKey]);
+  }, [isReady, userId, reloadKey, profile?.displayName, profile?.pictureUrl]);
 
   const canManageClass = user?.role === "teacher" || user?.isCoTeacher;
   const canManageIntegrations = user?.role === "teacher";

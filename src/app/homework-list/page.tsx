@@ -5,7 +5,6 @@ import { useLiff } from "@/lib/liff-provider";
 import { supabase } from "@/lib/supabase";
 import { ClipboardList, Plus, CheckCircle2, Send, X, MessageSquare, Users, ChevronRight, ArrowLeft, Clock, BookOpen } from "lucide-react";
 import MarkdownRenderer from "@/components/MarkdownRenderer";
-import { useAppUser } from "@/hooks/useAppUser";
 import BottomNav, { bottomNavOffset } from "@/components/BottomNav";
 
 type Homework = {
@@ -44,7 +43,6 @@ function groupHomeworks(homeworks: Homework[]): MonthGroup[] {
 
 export default function HomeworkListPage() {
   const { isReady, liffError, userId } = useLiff();
-  const { canManageClass } = useAppUser();
   const [homeworks, setHomeworks] = useState<Homework[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<string>("All");
@@ -119,7 +117,7 @@ export default function HomeworkListPage() {
   const grouped = groupHomeworks(filteredHomeworks);
 
   return (
-    <div style={{ minHeight: "100vh", background: "#F0F4FA", paddingBottom: bottomNavOffset(canManageClass ? 72 : 0) }}>
+    <div style={{ minHeight: "100vh", background: "#F0F4FA", paddingBottom: bottomNavOffset(72) }}>
       {/* Header */}
       <div style={{ background: "#495ca4", padding: "18px 20px 16px", borderRadius: "0 0 20px 20px" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
@@ -272,14 +270,12 @@ export default function HomeworkListPage() {
       </div>
 
       {/* Footer */}
-      {canManageClass && (
       <div style={{ position: "fixed", bottom: bottomNavOffset(), left: 0, right: 0, padding: "12px 20px", background: "rgba(240,244,250,0.95)", backdropFilter: "blur(10px)", borderTop: "1px solid #E2E8F0", zIndex: 100 }}>
         <button onClick={() => (window.location.href = "/add-homework")}
           style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%", maxWidth: 400, margin: "0 auto", padding: 14, background: "#2563EB", color: "#fff", fontSize: 15, fontWeight: 700, border: "none", borderRadius: 50, cursor: "pointer" }}>
           <Plus size={18} /> สร้างการบ้าน
         </button>
       </div>
-      )}
 
       <BottomNav />
 

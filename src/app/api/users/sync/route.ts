@@ -18,7 +18,14 @@ export async function POST(req: NextRequest) {
     }
 
     const supabase = getSupabase();
-    const role = resolveRole(line_user_id);
+
+    const { data: existingBeforeUpsert } = await supabase
+      .from("users")
+      .select("role")
+      .eq("line_user_id", line_user_id)
+      .maybeSingle();
+
+    const role = resolveRole(line_user_id, existingBeforeUpsert?.role);
 
     const { data, error } = await supabase
       .from("users")
@@ -50,13 +57,14 @@ export async function GET(req: NextRequest) {
     }
 
     const supabase = getSupabase();
-    const role = resolveRole(lineUserId);
 
     const { data: existing } = await supabase
       .from("users")
       .select("id, line_user_id, display_name, picture_url, role")
       .eq("line_user_id", lineUserId)
       .maybeSingle();
+
+    const role = resolveRole(lineUserId, existing?.role);
 
     if (existing) {
       if (existing.role !== role) {

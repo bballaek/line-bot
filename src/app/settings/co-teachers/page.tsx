@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useLiff } from "@/lib/liff-provider";
 import { useAppUser } from "@/hooks/useAppUser";
 import SettingsLayout, { SettingsCard } from "@/components/settings/SettingsLayout";
+import BecomeTeacherCard from "@/components/settings/BecomeTeacherCard";
 import { Plus, Trash2, User } from "lucide-react";
 
 type CoTeacher = {
@@ -24,14 +25,9 @@ export default function CoTeachersSettingsPage() {
   const [searching, setSearching] = useState(false);
 
   useEffect(() => {
-    if (!userLoading && !canManageIntegrations) {
-      window.location.href = "/settings";
-    }
-  }, [userLoading, canManageIntegrations]);
-
-  useEffect(() => {
+    if (!userLoading && !canManageIntegrations) return;
     if (isReady && userId && user?.id && canManageIntegrations) loadCoTeachers();
-  }, [isReady, userId, user?.id, canManageIntegrations]);
+  }, [isReady, userId, user?.id, canManageIntegrations, userLoading]);
 
   const loadCoTeachers = async () => {
     if (!userId) return;
@@ -97,6 +93,17 @@ export default function CoTeachersSettingsPage() {
   if (liffError) return <div style={{ padding: 16, color: "#E53935" }}>Error: {liffError}</div>;
   if (!isReady || userLoading) {
     return <div style={{ padding: 16, textAlign: "center", color: "#A1887F" }}>Loading...</div>;
+  }
+
+  if (!canManageIntegrations && userId) {
+    return (
+      <SettingsLayout title="ครูผู้สอนร่วม" breadcrumb="ครูผู้สอนร่วม">
+        <p style={{ fontSize: 14, color: "#795548", marginBottom: 16, lineHeight: 1.6 }}>
+          เพิ่มครูที่ช่วยสร้างการบ้านและประกาศได้ — ต้องลงทะเบียนเป็นครูก่อน
+        </p>
+        <BecomeTeacherCard lineUserId={userId} onSuccess={() => window.location.reload()} />
+      </SettingsLayout>
+    );
   }
 
   return (

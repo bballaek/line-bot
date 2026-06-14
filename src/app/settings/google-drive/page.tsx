@@ -6,6 +6,7 @@ import { useLiff } from "@/lib/liff-provider";
 import { useAppUser } from "@/hooks/useAppUser";
 import { supabase } from "@/lib/supabase";
 import SettingsLayout, { SettingsCard } from "@/components/settings/SettingsLayout";
+import BecomeTeacherCard from "@/components/settings/BecomeTeacherCard";
 import { Info, AlertTriangle } from "lucide-react";
 
 const ERROR_MESSAGES: Record<string, string> = {
@@ -24,6 +25,7 @@ export default function GoogleDriveSettingsPage() {
   const [connecting, setConnecting] = useState(false);
 
   useEffect(() => {
+    if (!userLoading && !canManageIntegrations) return;
     if (isReady && userId && user?.id && canManageIntegrations) loadIntegration();
 
     const params = new URLSearchParams(window.location.search);
@@ -36,13 +38,7 @@ export default function GoogleDriveSettingsPage() {
       alert(ERROR_MESSAGES[err] || "เชื่อมต่อ Google Drive ไม่สำเร็จ");
       window.history.replaceState({}, "", "/settings/google-drive");
     }
-  }, [isReady, userId, user?.id, canManageIntegrations]);
-
-  useEffect(() => {
-    if (!userLoading && !canManageIntegrations) {
-      window.location.href = "/settings";
-    }
-  }, [userLoading, canManageIntegrations]);
+  }, [isReady, userId, user?.id, canManageIntegrations, userLoading]);
 
   const loadIntegration = async () => {
     if (!user?.id) return;
@@ -85,6 +81,17 @@ export default function GoogleDriveSettingsPage() {
   if (liffError) return <div style={{ padding: 16, color: "#E53935" }}>Error: {liffError}</div>;
   if (!isReady || userLoading) {
     return <div style={{ padding: 16, textAlign: "center", color: "#A1887F" }}>Loading...</div>;
+  }
+
+  if (!canManageIntegrations && userId) {
+    return (
+      <SettingsLayout title="Google Drive" breadcrumb="Google Drive">
+        <p style={{ fontSize: 14, color: "#795548", marginBottom: 16, lineHeight: 1.6 }}>
+          เชื่อมต่อ Google Drive เพื่อสำรองไฟล์งานของนักเรียน — ต้องลงทะเบียนเป็นครูก่อน
+        </p>
+        <BecomeTeacherCard lineUserId={userId} onSuccess={() => window.location.reload()} />
+      </SettingsLayout>
+    );
   }
 
   return (
