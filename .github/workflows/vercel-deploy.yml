@@ -9,21 +9,14 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     env:
-      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+      # Same project as scripts/deploy-prod.sh (song-yang)
+      VERCEL_ORG_ID: team_sIqW9hTYZJtDzl28vXdA60G8f
+      VERCEL_PROJECT_ID: prj_IQSFko8D6JyEIQy8nCcuAXZCkAYA
     steps:
-      - name: Check secrets
+      - name: Check Vercel token
         run: |
           if [ -z "${{ secrets.VERCEL_TOKEN }}" ]; then
-            echo "::error::Missing VERCEL_TOKEN secret. Add it at GitHub → Settings → Secrets → Actions"
-            exit 1
-          fi
-          if [ -z "${{ secrets.VERCEL_ORG_ID }}" ]; then
-            echo "::error::Missing VERCEL_ORG_ID secret"
-            exit 1
-          fi
-          if [ -z "${{ secrets.VERCEL_PROJECT_ID }}" ]; then
-            echo "::error::Missing VERCEL_PROJECT_ID secret"
+            echo "::error::Missing VERCEL_TOKEN. Create one at https://vercel.com/account/tokens then add it in GitHub → repo Settings → Secrets and variables → Actions"
             exit 1
           fi
 
