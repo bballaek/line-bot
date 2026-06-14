@@ -39,7 +39,7 @@ const DEFAULT_TIMES: { start: string; end: string }[] = [
 
 export default function SchedulePage() {
   const { isReady, liffError, userId } = useLiff();
-  const { canManageClass } = useAppUser();
+  const { loading: userLoading } = useAppUser();
   const [dbUserId, setDbUserId] = useState<string | null>(null);
   const [selectedDay, setSelectedDay] = useState(() => {
     const d = new Date().getDay();
@@ -161,10 +161,16 @@ export default function SchedulePage() {
   };
 
   if (liffError) return <div style={{ padding: 16, color: "#E53935" }}>Error: {liffError}</div>;
-  if (!isReady) return <div style={{ padding: 16, textAlign: "center", color: "#A1887F" }}>Loading...</div>;
+  if (!isReady || userLoading) return <div style={{ padding: 16, textAlign: "center", color: "#A1887F" }}>Loading...</div>;
 
   const dayLabel = DAYS.find(d => d.value === selectedDay)?.label || "";
   const filledCount = schedules.filter(s => s.subject).length;
+  const canSendSchedule = filledCount > 0 && !!dbUserId;
+
+  const openSend = () => {
+    setSendStep("choose");
+    setShowSend(true);
+  };
 
   return (
     <>
@@ -172,6 +178,11 @@ export default function SchedulePage() {
       <div style={{ margin: "-8px 0 12px" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
           <span style={{ color: "#A1887F", fontSize: 13 }}>{filledCount}/8 คาบ</span>
+          {canSendSchedule && (
+            <button onClick={openSend} style={{ background: "#FFF8E1", border: "1px solid #F5E6D3", borderRadius: 8, padding: "4px 10px", color: "#5D4037", fontSize: 12, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 4 }}>
+              <Send size={12} /> ส่งตาราง
+            </button>
+          )}
         </div>
       </div>
 
@@ -197,7 +208,7 @@ export default function SchedulePage() {
       </div>
 
       {/* Schedule Table */}
-      <div style={{ padding: `0 0 ${canManageClass && filledCount > 0 ? 88 : 16}px` }}>
+      <div style={{ padding: `0 0 ${canSendSchedule ? 88 : 16}px` }}>
         <h2 style={{ fontSize: 16, fontWeight: 700, color: "#3E2723", marginBottom: 12, paddingLeft: 4 }}>
           วัน{dayLabel}
         </h2>
@@ -256,11 +267,11 @@ export default function SchedulePage() {
       </div>
       </SettingsLayout>
 
-      {canManageClass && filledCount > 0 && (
+      {canSendSchedule && (
         <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, padding: "12px 20px", paddingBottom: "calc(12px + env(safe-area-inset-bottom, 0px))", background: "rgba(255,249,240,0.95)", backdropFilter: "blur(10px)", borderTop: "1px solid #F5E6D3", zIndex: 100 }}>
-          <button onClick={() => { setSendStep("choose"); setShowSend(true); }}
+          <button onClick={openSend}
             style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%", maxWidth: 400, margin: "0 auto", padding: 14, background: "#FFC107", color: "#3E2723", fontSize: 15, fontWeight: 700, border: "none", borderRadius: 50, cursor: "pointer" }}>
-            <Send size={18} /> ส่งตารางเข้า LINE
+            <Send size={18} /> ส่งตารางเรียน
           </button>
         </div>
       )}
@@ -325,7 +336,7 @@ export default function SchedulePage() {
                   <div style={{ width: 70, height: 70, borderRadius: "50%", background: "#FFF8E1", margin: "0 auto 12px", display: "flex", alignItems: "center", justifyContent: "center" }}>
                     <CalendarDays size={32} color="#FFC107" />
                   </div>
-                  <h3 style={{ fontSize: 17, fontWeight: 700, color: "#3E2723", marginBottom: 4 }}>ส่งตารางวัน{dayLabel}</h3>
+                  <h3 style={{ fontSize: 17, fontWeight: 700, color: "#3E2723", marginBottom: 4 }}>ส่งตารางเรียน วัน{dayLabel}</h3>
                   <p style={{ fontSize: 13, color: "#A1887F", lineHeight: 1.6, margin: 0 }}>บอทจะส่ง Flex Message เข้าแชทให้</p>
                 </div>
                 <button onClick={() => userId && sendToTarget(userId)} disabled={sending}

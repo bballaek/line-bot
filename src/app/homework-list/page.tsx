@@ -44,7 +44,7 @@ function groupHomeworks(homeworks: Homework[]): MonthGroup[] {
 
 export default function HomeworkListPage() {
   const { isReady, liffError, userId } = useLiff();
-  const { canManageClass } = useAppUser();
+  const { canManageClass, loading: userLoading } = useAppUser();
   const [homeworks, setHomeworks] = useState<Homework[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<string>("All");
@@ -109,7 +109,12 @@ export default function HomeworkListPage() {
   const openSendDaily = () => { setSendMode("daily"); setSendStep("choose"); setShowSend(true); };
 
   if (liffError) return <div style={{ padding: 16, color: "#E53935" }}>Error: {liffError}</div>;
-  if (!isReady) return <div style={{ padding: 16, textAlign: "center", color: "#A1887F" }}>Loading...</div>;
+  if (!isReady || userLoading) return <div style={{ padding: 16, textAlign: "center", color: "#A1887F" }}>Loading...</div>;
+
+  const hasOwnHomework = !!currentDbUserId && homeworks.some((hw) => hw.created_by === currentDbUserId);
+  const canSendHomework = canManageClass || hasOwnHomework;
+  const showSendFooter = canSendHomework && homeworks.length > 0;
+  const footerExtra = (canManageClass ? 72 : 0) + (showSendFooter ? 58 : 0);
 
   const filteredHomeworks = homeworks.filter((hw) => {
     if (activeTab === "All") return true;
@@ -119,13 +124,13 @@ export default function HomeworkListPage() {
   const grouped = groupHomeworks(filteredHomeworks);
 
   return (
-    <div style={{ minHeight: "100vh", background: "#FFF9F0", paddingBottom: bottomNavOffset(canManageClass ? 72 : 0) }}>
+    <div style={{ minHeight: "100vh", background: "#FFF9F0", paddingBottom: bottomNavOffset(footerExtra) }}>
       {/* Header */}
       <div style={{ padding: "14px 16px 8px", textAlign: "center" }}>
         <h1 style={{ fontSize: 17, fontWeight: 700, color: "#3E2723", margin: 0 }}>การบ้านทั้งหมด</h1>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginTop: 4 }}>
           <span style={{ color: "#A1887F", fontSize: 13 }}>{homeworks.length} รายการ</span>
-          {canManageClass && homeworks.length > 0 && (
+          {showSendFooter && (
             <button onClick={openSendDaily} style={{ background: "#FFF8E1", border: "1px solid #F5E6D3", borderRadius: 8, padding: "4px 10px", color: "#5D4037", fontSize: 12, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 4 }}>
               <Send size={12} /> ส่งรายงาน
             </button>
@@ -209,7 +214,7 @@ export default function HomeworkListPage() {
                           <div style={{ padding: "12px 14px" }}>
                             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
                               <div style={{ fontWeight: 700, fontSize: 15, color: "#3E2723", flex: 1 }}>{hw.title}</div>
-                              {canManageClass && (
+                              {canSendHomework && (
                                 <button onClick={(e) => { e.stopPropagation(); openSendSingle(hw); }} style={{ background: "#FFF8E1", border: "1px solid #F5E6D3", borderRadius: 8, padding: "4px 8px", cursor: "pointer", color: "#F9A825", display: "flex", alignItems: "center", flexShrink: 0 }} title="ส่งเข้า LINE">
                                   <Send size={15} />
                                 </button>
@@ -269,12 +274,20 @@ export default function HomeworkListPage() {
       </div>
 
       {/* Footer */}
-      {canManageClass && (
-      <div style={{ position: "fixed", bottom: bottomNavOffset(), left: 0, right: 0, padding: "12px 20px", background: "rgba(255,249,240,0.95)", backdropFilter: "blur(10px)", borderTop: "1px solid #F5E6D3", zIndex: 100 }}>
+      {(canManageClass || showSendFooter) && (
+      <div style={{ position: "fixed", bottom: bottomNavOffset(), left: 0, right: 0, padding: "12px 20px", background: "rgba(255,249,240,0.95)", backdropFilter: "blur(10px)", borderTop: "1px solid #F5E6D3", zIndex: 100, display: "flex", flexDirection: "column", gap: 8 }}>
+        {showSendFooter && (
+          <button onClick={openSendDaily}
+            style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%", maxWidth: 400, margin: "0 auto", padding: 14, background: "#fff", color: "#3E2723", fontSize: 15, fontWeight: 700, border: "1px solid #F5E6D3", borderRadius: 50, cursor: "pointer" }}>
+            <Send size={18} color="#F9A825" /> ส่งรายงานการบ้าน
+          </button>
+        )}
+        {canManageClass && (
         <button onClick={() => (window.location.href = "/add-homework")}
           style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%", maxWidth: 400, margin: "0 auto", padding: 14, background: "#FFC107", color: "#3E2723", fontSize: 15, fontWeight: 700, border: "none", borderRadius: 50, cursor: "pointer" }}>
           <Plus size={18} /> สร้างการบ้าน
         </button>
+        )}
       </div>
       )}
 

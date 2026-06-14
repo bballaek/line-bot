@@ -27,7 +27,7 @@ export default function HomeworkDetailPage() {
   const params = useParams();
   const hwId = params.id as string;
   const { isReady, liffError, userId } = useLiff();
-  const { canManageClass } = useAppUser();
+  const { canManageClass, loading: userLoading } = useAppUser();
 
   const [hw, setHw] = useState<Homework | null>(null);
   const [loading, setLoading] = useState(true);
@@ -176,8 +176,10 @@ export default function HomeworkDetailPage() {
   };
 
   if (liffError) return <div style={{ padding: 16, color: "#E53935" }}>Error: {liffError}</div>;
-  if (!isReady || loading) return <div style={{ padding: 16, textAlign: "center", color: "#A1887F" }}>Loading...</div>;
+  if (!isReady || userLoading || loading) return <div style={{ padding: 16, textAlign: "center", color: "#A1887F" }}>Loading...</div>;
   if (!hw) return <div style={{ padding: 16, textAlign: "center", color: "#A1887F" }}>ไม่พบการบ้าน</div>;
+
+  const canSendHomework = canManageClass || isCreator;
 
   return (
     <div style={{ minHeight: "100vh", background: "#FFF9F0", display: "flex", flexDirection: "column" }}>
@@ -291,10 +293,10 @@ export default function HomeworkDetailPage() {
           </button>
         )}
 
-        {canManageClass && (
+        {canSendHomework && (
           <button onClick={() => { setSendStep("choose"); setShowSend(true); }}
-            style={{ width: "100%", padding: "14px 16px", background: "#FFF8E1", border: "1px solid #F5E6D3", borderRadius: 14, fontSize: 14, fontWeight: 600, color: "#5D4037", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginBottom: 16 }}>
-            <Send size={18} color="#F9A825" /> ส่งเข้า LINE
+            style={{ width: "100%", padding: "14px 16px", background: "#FFC107", border: "none", borderRadius: 14, fontSize: 14, fontWeight: 700, color: "#3E2723", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginBottom: 16 }}>
+            <Send size={18} /> ส่งรายงานการบ้าน
           </button>
         )}
       </div>
@@ -375,8 +377,9 @@ export default function HomeworkDetailPage() {
             {sendStep === "choose" ? (
               <>
                 <h3 style={{ fontSize: 16, fontWeight: 700, color: "#3E2723", marginBottom: 4, textAlign: "center" }}>
-                  ส่ง: {hw.title}
+                  ส่งรายงานการบ้าน
                 </h3>
+                <p style={{ fontSize: 13, color: "#795548", textAlign: "center", marginBottom: 4 }}>{hw.title}</p>
                 <p style={{ fontSize: 13, color: "#A1887F", textAlign: "center", marginBottom: 16 }}>บอทจะส่งข้อความเข้าแชทให้</p>
 
                 <button onClick={() => userId && sendToTarget(userId)} disabled={sending}
