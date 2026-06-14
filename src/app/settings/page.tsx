@@ -1,176 +1,120 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useLiff } from "@/lib/liff-provider";
+import { useAppUser } from "@/hooks/useAppUser";
 import { supabase } from "@/lib/supabase";
-import { ArrowLeft, Check, Plus } from "lucide-react";
-
-const PRESET_OPTIONS = [
-  { label: "1 ชั่วโมงก่อนกำหนดส่ง", value: "1h" },
-  { label: "6 ชั่วโมงก่อนกำหนดส่ง", value: "6h" },
-  { label: "1 วันก่อนวันกำหนดส่ง", value: "1d" },
-  { label: "3 วันก่อนวันกำหนดส่ง", value: "3d" },
-  { label: "1 สัปดาห์ก่อนวันกำหนดส่ง", value: "1w" },
-];
-
-const MAX_SELECTIONS = 3;
+import { ensureUser } from "@/lib/ensure-user";
+import { groupLabel, NOTIFY_PRESETS } from "@/lib/settings-constants";
+import SettingsLayout, { SettingsCard } from "@/components/settings/SettingsLayout";
+import SettingsMenuItem from "@/components/settings/SettingsMenuItem";
+import BottomNav from "@/components/BottomNav";
+import BecomeTeacherCard from "@/components/settings/BecomeTeacherCard";
+import { Users, FolderOpen, Bell, UserCog } from "lucide-react";
 
 export default function SettingsPage() {
   const { isReady, liffError, userId } = useLiff();
-  const [selected, setSelected] = useState<string[]>(["1d"]);
-  const [targetGroup, setTargetGroup] = useState<string>("All");
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
+  const { user, loading: userLoading, canManageIntegrations, refresh } = useAppUser();
+  const [targetGroup, setTargetGroup] = useState("All");
+  const [notifyCount, setNotifyCount] = useState(0);
+  const [googleStatus, setGoogleStatus] = useState<string>("ยังไม่เชื่อมต่อ");
+  const [coTeacherCount, setCoTeacherCount] = useState(0);
 
   useEffect(() => {
-    if (isReady && userId) loadSettings();
-  }, [isReady, userId]);
+    if (isReady && userId) loadSummary();
+  }, [isReady, userId, user?.id, user?.role, canManageIntegrations]);
+
+  const loadSummary = async () => {
+    try {
+      const dbId = user?.id ?? await ensureUser(userId as string);
+      const { data: settings } = await supabase
+        .from("user_settings")
+        .select("target_group, notify_days")
+        .eq("user_id", dbId)
+        .maybeSingle();
+
+      if (settings?.target_group) setTargetGroup(settings.target_group);
+      if (settings?.notify_days && Array.isArray(settings.notify_days)) {
+        setNotifyCount(settings.notify_days.length);
+      }
+
+      if (canManageIntegrations) {
+        const { data: integration } = await supabase
+          .from("teacher_integrations")
+          .select("google_email")
+          .eq("user_id", dbId)
+          .maybeSingle();
+        setGoogleStatus(integration?.google_email || "ยังไม่เชื่อมต่อ");
+
+        const { count } = await supabase
+          .from("co_teachers")
+          .select("*", { count: "exact", head: true })
+          .eq("owner_id", dbId);
+        setCoTeacherCount(count ?? 0);
+      }
+    } catch (e) {
+      console.error("loadSummary error:", e);
+    }
+  };
 
   if (liffError) return <div style={{ padding: 16, color: "#E53935" }}>Error: {liffError}</div>;
-  if (!isReady) return <div style={{ padding: 16, textAlign: "center", color: "#94A3B8" }}>Loading...</div>;
+  if (!isReady || userLoading) {
+    return <div style={{ padding: 16, textAlign: "center", color: "#A1887F", background: "#FFF9F0", minHeight: "100vh" }}>Loading...</div>;
+  }
 
-  // Ensure user exists in DB, return their UUID
-  const ensureUser = async (): Promise<string> => {
-    // Try to find existing user
-    const { data: existing } = await supabase
-      .from("users").select("id").eq("line_user_id", userId as string).single();
-    if (existing) return existing.id;
-
-    // Auto-create user if not found
-    const { data: created, error: createErr } = await supabase
-      .from("users").upsert(
-        { line_user_id: userId as string, display_name: "LIFF User" },
-        { onConflict: "line_user_id" }
-      ).select("id").single();
-    if (createErr) throw new Error("ไม่สามารถสร้างผู้ใช้ได้: " + createErr.message);
-    if (!created) throw new Error("ไม่สามารถสร้างผู้ใช้ได้");
-    return created.id;
-  };
-
-  const loadSettings = async () => {
-    try {
-      const dbId = await ensureUser();
-      const { data } = await supabase
-        .from("user_settings").select("notify_days, target_group").eq("user_id", dbId).single();
-      if (data) {
-        if (data.notify_days && Array.isArray(data.notify_days)) setSelected(data.notify_days);
-        if (data.target_group) setTargetGroup(data.target_group);
-      }
-    } catch (e) { console.error("loadSettings error:", e); }
-  };
-
-  const toggleOption = (val: string) => {
-    setSelected((prev) => {
-      if (prev.includes(val)) return prev.filter((v) => v !== val);
-      if (prev.length >= MAX_SELECTIONS) {
-        alert(`เลือกได้สูงสุด ${MAX_SELECTIONS} อัน`);
-        return prev;
-      }
-      return [...prev, val];
-    });
-  };
-
-  const handleSave = async () => {
-    setSaving(true);
-    setSaved(false);
-    try {
-      const dbId = await ensureUser();
-
-      // Check if settings already exist
-      const { data: existingSettings } = await supabase
-        .from("user_settings").select("id").eq("user_id", dbId).maybeSingle();
-
-      if (existingSettings) {
-        const { error } = await supabase.from("user_settings")
-          .update({ notify_days: selected, target_group: targetGroup })
-          .eq("user_id", dbId);
-        if (error) throw error;
-      } else {
-        const { error } = await supabase.from("user_settings")
-          .insert({ user_id: dbId, notify_days: selected, target_group: targetGroup });
-        if (error) throw error;
-      }
-      setSaved(true);
-      setTimeout(() => setSaved(false), 2000);
-    } catch (err: any) {
-      console.error("Save settings error:", err);
-      alert("บันทึกไม่สำเร็จ: " + (err.message || JSON.stringify(err)));
-    } finally { setSaving(false); }
-  };
+  const notifySubtitle = notifyCount > 0 ? `${notifyCount} รายการที่เลือก` : "ยังไม่ได้ตั้งค่า";
+  const coTeacherSubtitle = coTeacherCount > 0 ? `${coTeacherCount} คน` : "ยังไม่มีครูร่วม";
 
   return (
-    <div style={{ minHeight: "100vh", background: "#F0F4FA", display: "flex", flexDirection: "column" }}>
-      {/* Header */}
-      <div style={{ position: "sticky", top: 0, zIndex: 50, display: "flex", alignItems: "center", padding: "14px 16px", background: "rgba(240,244,250,0.95)", backdropFilter: "blur(10px)", borderBottom: "1px solid #E2E8F0" }}>
-        <button onClick={() => (window.location.href = "/homework-list")} style={{ background: "none", border: "none", cursor: "pointer", padding: "4px 8px", color: "#475569", display: "flex", alignItems: "center" }}>
-          <ArrowLeft size={22} />
-        </button>
-        <h1 style={{ flex: 1, textAlign: "center", fontSize: 17, fontWeight: 700, color: "#1E293B", margin: 0, paddingRight: 36 }}>ตั้งค่า</h1>
-      </div>
+    <>
+    <SettingsLayout title="ตั้งค่า" hideBack>
+      <SettingsCard>
+        <SettingsMenuItem
+          icon={<Users size={20} />}
+          title="ตั้งค่า Group"
+          subtitle={groupLabel(targetGroup)}
+          href="/settings/group"
+        />
+        {canManageIntegrations && (
+          <SettingsMenuItem
+            icon={<FolderOpen size={20} />}
+            title="Google Drive"
+            subtitle={googleStatus}
+            href="/settings/google-drive"
+          />
+        )}
+        <SettingsMenuItem
+          icon={<Bell size={20} />}
+          title="การแจ้งเตือน"
+          subtitle={notifySubtitle}
+          href="/settings/notifications"
+          isLast={!canManageIntegrations}
+        />
+        {canManageIntegrations && (
+          <SettingsMenuItem
+            icon={<UserCog size={20} />}
+            title="ครูผู้สอนร่วม"
+            subtitle={coTeacherSubtitle}
+            href="/settings/co-teachers"
+            isLast
+          />
+        )}
+      </SettingsCard>
 
-      {/* Content */}
-      <div style={{ padding: "20px 16px", flex: 1, paddingBottom: 100 }}>
-        <h2 style={{ fontSize: 15, fontWeight: 700, color: "#1E293B", marginBottom: 16 }}>กลุ่มเรียนของฉัน</h2>
-        <div style={{ display: "flex", gap: 12, marginBottom: 24 }}>
-          {["All", "Group A", "Group B"].map((grp) => (
-            <label key={grp} style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 14, color: "#1E293B" }}>
-              <div onClick={() => setTargetGroup(grp)} style={{ width: 20, height: 20, borderRadius: "50%", border: targetGroup === grp ? "none" : "2px solid #CBD5E1", background: targetGroup === grp ? "#2563EB" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
-                {targetGroup === grp && <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#fff" }} />}
-              </div>
-              {grp === "All" ? "ทั้งหมด" : grp}
-            </label>
-          ))}
+      {user?.role === "student" && !user.isCoTeacher && userId && (
+        <div style={{ marginTop: 20 }}>
+          <BecomeTeacherCard lineUserId={userId} onSuccess={refresh} />
         </div>
+      )}
 
-        <h2 style={{ fontSize: 15, fontWeight: 700, color: "#1E293B", marginBottom: 16 }}>การแจ้งเตือนก่อนถึงกำหนด</h2>
-
-        <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
-          {PRESET_OPTIONS.map((opt, i) => {
-            const isSelected = selected.includes(opt.value);
-            return (
-              <div
-                key={opt.value}
-                onClick={() => toggleOption(opt.value)}
-                style={{
-                  display: "flex", alignItems: "center", justifyContent: "space-between",
-                  padding: "14px 16px", background: "#fff", cursor: "pointer",
-                  borderTop: i === 0 ? "1px solid #E2E8F0" : "none",
-                  borderLeft: "1px solid #E2E8F0", borderRight: "1px solid #E2E8F0",
-                  borderBottom: "1px solid #E2E8F0",
-                  borderRadius: i === 0 ? "12px 12px 0 0" : i === PRESET_OPTIONS.length - 1 ? "0 0 12px 12px" : 0,
-                }}
-              >
-                <span style={{ fontSize: 14, color: "#1E293B" }}>{opt.label}</span>
-                {isSelected && <Check size={18} color="#2563EB" />}
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Custom option */}
-        <div
-          style={{
-            display: "flex", alignItems: "center", gap: 8,
-            padding: "14px 16px", marginTop: 12, cursor: "pointer",
-            color: "#2563EB", fontSize: 14, fontWeight: 500,
-          }}
-        >
-          <Plus size={16} /> กำหนดเอง
-        </div>
-
-        <div style={{ fontSize: 12, color: "#94A3B8", marginTop: 8, paddingLeft: 4 }}>
-          เลือกได้สูงสุด {MAX_SELECTIONS} รายการ (เลือกแล้ว {selected.length}/{MAX_SELECTIONS})
-        </div>
-      </div>
-
-      {/* Footer */}
-      <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, padding: "12px 20px", paddingBottom: "calc(12px + env(safe-area-inset-bottom, 0px))", background: "rgba(240,244,250,0.95)", backdropFilter: "blur(10px)", borderTop: "1px solid #E2E8F0", zIndex: 100 }}>
-        <button onClick={handleSave} disabled={saving}
-          style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%", maxWidth: 400, margin: "0 auto", padding: 14, background: saving ? "#94A3B8" : "#2563EB", color: "#fff", fontSize: 15, fontWeight: 700, border: "none", borderRadius: 50, cursor: saving ? "not-allowed" : "pointer" }}
-        >
-          {saving ? "กำลังบันทึก..." : saved ? "บันทึกแล้ว!" : "บันทึก"}
-        </button>
-      </div>
-    </div>
+      {user?.role === "student" && user.isCoTeacher && (
+        <p style={{ fontSize: 13, color: "#A1887F", textAlign: "center", marginTop: 20, lineHeight: 1.6 }}>
+          คุณเป็นครูผู้สอนร่วม — สร้างการบ้านและประกาศได้<br />
+          การเชื่อม Google Drive สำหรับครูหลักเท่านั้น
+        </p>
+      )}
+    </SettingsLayout>
+    <BottomNav />
+    </>
   );
 }

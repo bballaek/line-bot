@@ -3,7 +3,8 @@
 import React, { useEffect, useState } from "react";
 import { useLiff } from "@/lib/liff-provider";
 import { supabase } from "@/lib/supabase";
-import { ArrowLeft, Send, X, MessageSquare, Users, ChevronRight, Clock, BookOpen, User, Edit3, Check, Trash2, CalendarDays } from "lucide-react";
+import { ArrowLeft, Send, X, MessageSquare, Users, ChevronRight, Clock, BookOpen, User, Edit3, Check, Trash2, CalendarDays, GraduationCap } from "lucide-react";
+import BottomNav, { bottomNavOffset } from "@/components/BottomNav";
 
 type Schedule = {
   id?: string;
@@ -164,16 +165,13 @@ export default function SchedulePage() {
   const filledCount = schedules.filter(s => s.subject).length;
 
   return (
-    <div style={{ minHeight: "100vh", background: "#F0F4FA", paddingBottom: 20 }}>
+    <div style={{ minHeight: "100vh", background: "#F0F4FA", paddingBottom: bottomNavOffset() }}>
       {/* Header */}
       <div style={{ background: "#495ca4", padding: "18px 20px 16px", borderRadius: "0 0 20px 20px" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <button onClick={() => (window.location.href = "/homework-list")} style={{ background: "none", border: "none", cursor: "pointer", color: "#fff", padding: 0, display: "flex" }}>
-              <ArrowLeft size={22} />
-            </button>
-            <CalendarDays size={22} color="#fff" />
-            <span style={{ color: "#fff", fontWeight: 700, fontSize: 18 }}>ตารางเรียน</span>
+            <GraduationCap size={22} color="#fff" />
+            <span style={{ color: "#fff", fontWeight: 700, fontSize: 18 }}>ห้องเรียน</span>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <span style={{ color: "#93C5FD", fontSize: 13 }}>{filledCount}/8 คาบ</span>
@@ -359,6 +357,8 @@ export default function SchedulePage() {
           </div>
         </div>
       )}
+
+      <BottomNav />
     </div>
   );
 }

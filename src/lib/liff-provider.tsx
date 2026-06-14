@@ -2,7 +2,6 @@
 
 import { useEffect, useState, createContext, useContext, ReactNode } from "react";
 import liff from "@line/liff";
-import { supabase } from "./supabase";
 
 type LiffContextType = {
   isReady: boolean;
@@ -38,20 +37,19 @@ export function LiffProvider({ children }: { children: ReactNode }) {
           setProfile(userProfile);
           setUserId(userProfile.userId);
 
-          // UPSERT user to Supabase
-          const { error } = await supabase
-            .from("users")
-            .upsert(
-              {
+          // Sync user to Supabase with role
+          try {
+            await fetch("/api/users/sync", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
                 line_user_id: userProfile.userId,
                 display_name: userProfile.displayName,
                 picture_url: userProfile.pictureUrl,
-              },
-              { onConflict: "line_user_id" }
-            );
-
-          if (error) {
-            console.error("Error saving user to Supabase:", error);
+              }),
+            });
+          } catch (syncErr) {
+            console.error("Error syncing user:", syncErr);
           }
         } else {
           liff.login();

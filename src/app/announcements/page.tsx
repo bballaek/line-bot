@@ -5,9 +5,10 @@ import { useLiff } from "@/lib/liff-provider";
 import { supabase } from "@/lib/supabase";
 import { Megaphone, Plus, CalendarDays, ChevronRight, AlertCircle, FileEdit, Send, X, MessageSquare, Users, ArrowLeft } from "lucide-react";
 import MarkdownRenderer from "@/components/MarkdownRenderer";
+import BottomNav, { bottomNavOffset } from "@/components/BottomNav";
 
 type Announcement = {
-  id: string; title: string; content: string; pinned: boolean; created_at: string;
+  id: string; title: string; content: string; pinned: boolean; created_at: string; created_by: string;
 };
 type Group = { id: string; line_group_id: string; group_name: string };
 
@@ -34,6 +35,7 @@ export default function AnnouncementsPage() {
   const { isReady, liffError, userId } = useLiff();
   const [items, setItems] = useState<Announcement[]>([]);
   const [loading, setLoading] = useState(true);
+  const [dbUserId, setDbUserId] = useState<string | null>(null);
 
   // Send modal state
   const [showSend, setShowSend] = useState(false);
@@ -51,10 +53,10 @@ export default function AnnouncementsPage() {
       if (!userId) return;
       const { data: userData } = await supabase.from("users").select("id").eq("line_user_id", userId).single();
       if (!userData) return;
+      setDbUserId(userData.id);
 
       const { data, error } = await supabase
-        .from("announcements").select("id, title, content, pinned, created_at")
-        .eq("created_by", userData.id)
+        .from("announcements").select("id, title, content, pinned, created_at, created_by")
         .order("created_at", { ascending: false });
       if (error) throw error;
       setItems(data || []);
@@ -100,10 +102,12 @@ export default function AnnouncementsPage() {
           <div onClick={() => (window.location.href = `/announcements/${ann.id}`)}
             style={{ fontWeight: 700, fontSize: 15, color: "#1E293B", flex: 1, cursor: "pointer" }}>{ann.title}</div>
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <button onClick={(e) => { e.stopPropagation(); openSend(ann); }}
-              style={{ background: "none", border: "none", cursor: "pointer", color: isPinned ? "#D97706" : "#93C5FD", padding: "2px 4px" }}>
-              <Send size={15} />
-            </button>
+            {dbUserId === ann.created_by && (
+              <button onClick={(e) => { e.stopPropagation(); openSend(ann); }}
+                style={{ background: "none", border: "none", cursor: "pointer", color: isPinned ? "#D97706" : "#93C5FD", padding: "2px 4px" }}>
+                <Send size={15} />
+              </button>
+            )}
             <ChevronRight size={16} color={isPinned ? "#D97706" : "#CBD5E1"} onClick={() => (window.location.href = `/announcements/${ann.id}`)} style={{ cursor: "pointer" }} />
           </div>
         </div>
@@ -121,7 +125,7 @@ export default function AnnouncementsPage() {
   );
 
   return (
-    <div style={{ minHeight: "100vh", background: "#F0F4FA", paddingBottom: 80 }}>
+    <div style={{ minHeight: "100vh", background: "#F0F4FA", paddingBottom: bottomNavOffset(72) }}>
       {/* Header */}
       <div style={{ background: "#495ca4", padding: "18px 20px 16px", borderRadius: "0 0 20px 20px" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
@@ -173,12 +177,14 @@ export default function AnnouncementsPage() {
       </div>
 
       {/* Footer */}
-      <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, padding: "12px 20px", paddingBottom: "calc(12px + env(safe-area-inset-bottom, 0px))", background: "rgba(240,244,250,0.95)", backdropFilter: "blur(10px)", borderTop: "1px solid #E2E8F0", zIndex: 100 }}>
+      <div style={{ position: "fixed", bottom: bottomNavOffset(), left: 0, right: 0, padding: "12px 20px", background: "rgba(240,244,250,0.95)", backdropFilter: "blur(10px)", borderTop: "1px solid #E2E8F0", zIndex: 100 }}>
         <button onClick={() => (window.location.href = "/announcements/create")}
           style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%", maxWidth: 400, margin: "0 auto", padding: 14, background: "#2563EB", color: "#fff", fontSize: 15, fontWeight: 700, border: "none", borderRadius: 50, cursor: "pointer" }}>
           <Plus size={18} /> สร้างประกาศ
         </button>
       </div>
+
+      <BottomNav />
 
       {/* Send Modal */}
       {showSend && sendAnn && (
