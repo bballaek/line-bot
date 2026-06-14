@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { GraduationCap } from "lucide-react";
 import { SettingsCard } from "@/components/settings/SettingsLayout";
+import { useLiff } from "@/lib/liff-provider";
 
 type Props = {
   lineUserId: string;
@@ -10,6 +11,7 @@ type Props = {
 };
 
 export default function BecomeTeacherCard({ lineUserId, onSuccess }: Props) {
+  const { profile } = useLiff();
   const [code, setCode] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -22,10 +24,25 @@ export default function BecomeTeacherCard({ lineUserId, onSuccess }: Props) {
     setSubmitting(true);
     setError("");
     try {
+      await fetch("/api/users/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          line_user_id: lineUserId,
+          display_name: profile?.displayName,
+          picture_url: profile?.pictureUrl ?? null,
+        }),
+      });
+
       const res = await fetch("/api/users/become-teacher", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ line_user_id: lineUserId, invite_code: code.trim() }),
+        body: JSON.stringify({
+          line_user_id: lineUserId,
+          invite_code: code.trim(),
+          display_name: profile?.displayName,
+          picture_url: profile?.pictureUrl ?? null,
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "ลงทะเบียนไม่สำเร็จ");

@@ -11,7 +11,7 @@ function getSupabase() {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { line_user_id, invite_code } = body;
+    const { line_user_id, invite_code, display_name, picture_url } = body;
 
     if (!line_user_id || !invite_code) {
       return NextResponse.json({ error: "กรุณากรอกรหัสเชิญ" }, { status: 400 });
@@ -27,15 +27,30 @@ export async function POST(req: NextRequest) {
     }
 
     const supabase = getSupabase();
+
+    const { data: existing } = await supabase
+      .from("users")
+      .select("display_name, picture_url")
+      .eq("line_user_id", line_user_id)
+      .maybeSingle();
+
     const { data: user, error } = await supabase
       .from("users")
-      .update({ role: "teacher" })
-      .eq("line_user_id", line_user_id)
+      .upsert(
+        {
+          line_user_id,
+          display_name: display_name || existing?.display_name || "LIFF User",
+          picture_url: picture_url ?? existing?.picture_url ?? null,
+          role: "teacher",
+        },
+        { onConflict: "line_user_id" }
+      )
       .select("id, line_user_id, display_name, picture_url, role")
       .single();
 
     if (error || !user) {
-      return NextResponse.json({ error: "ไม่พบบัญชีผู้ใช้ กรุณาเปิดแอปอีกครั้งแล้วลองใหม่" }, { status: 404 });
+      console.error("Become teacher upsert error:", error);
+      return NextResponse.json({ error: "ลงทะเบียนไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" }, { status: 500 });
     }
 
     return NextResponse.json({ user, message: "ลงทะเบียนเป็นครูสำเร็จ" });
