@@ -19,6 +19,7 @@ export default function SettingsPage() {
   const [notifyCount, setNotifyCount] = useState(0);
   const [googleStatus, setGoogleStatus] = useState<string>("ยังไม่เชื่อมต่อ");
   const [coTeacherCount, setCoTeacherCount] = useState(0);
+  const [incomingInvites, setIncomingInvites] = useState<{ token: string; owner: { display_name: string | null } }[]>([]);
 
   const isTeacher = user?.role === "teacher";
   const showRegister = !isTeacher && !user?.isCoTeacher && !!userId;
@@ -55,6 +56,12 @@ export default function SettingsPage() {
           .eq("owner_id", dbId);
         setCoTeacherCount(count ?? 0);
       }
+
+      if (userId) {
+        const invRes = await fetch(`/api/co-teachers/invite?line_user_id=${encodeURIComponent(userId)}`);
+        const invData = await invRes.json();
+        setIncomingInvites(invData.incoming || []);
+      }
     } catch (e) {
       console.error("loadSummary error:", e);
     }
@@ -76,6 +83,24 @@ export default function SettingsPage() {
         <div style={{ marginBottom: 20 }}>
           <BecomeTeacherCard lineUserId={userId!} onSuccess={refresh} />
         </div>
+      )}
+
+      {incomingInvites.length > 0 && (
+        <a
+          href={`/settings/co-teachers/invite?token=${encodeURIComponent(incomingInvites[0].token)}`}
+          style={{
+            display: "block", marginBottom: 16, padding: "14px 16px",
+            background: "#E8F5E9", borderRadius: 12, textDecoration: "none",
+            border: "1px solid #C8E6C9",
+          }}
+        >
+          <div style={{ fontSize: 14, fontWeight: 600, color: "#2E7D32" }}>
+            คำเชิญครูผู้สอนร่วม
+          </div>
+          <div style={{ fontSize: 13, color: "#558B2F", marginTop: 4 }}>
+            {incomingInvites[0].owner.display_name || "ครู"} เชิญคุณช่วยสร้างการบ้าน — กดเพื่อตอบรับ
+          </div>
+        </a>
       )}
 
       {user?.role === "student" && user.isCoTeacher && (

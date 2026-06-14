@@ -37,13 +37,20 @@ export async function GET(req: NextRequest) {
 
     if (error) throw error;
 
-    const existing = await supabase
-      .from("co_teachers")
-      .select("teacher_id")
-      .eq("owner_id", requester.id);
+    const [existing, pending] = await Promise.all([
+      supabase.from("co_teachers").select("teacher_id").eq("owner_id", requester.id),
+      supabase
+        .from("co_teacher_invites")
+        .select("invitee_id")
+        .eq("owner_id", requester.id)
+        .eq("status", "pending"),
+    ]);
 
-    const existingIds = new Set((existing.data || []).map((r) => r.teacher_id));
-    const users = (data || []).filter((u) => !existingIds.has(u.id));
+    const excludeIds = new Set([
+      ...(existing.data || []).map((r) => r.teacher_id),
+      ...(pending.data || []).map((r) => r.invitee_id),
+    ]);
+    const users = (data || []).filter((u) => !excludeIds.has(u.id));
 
     return NextResponse.json({ users });
   } catch (error: any) {

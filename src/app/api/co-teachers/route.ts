@@ -59,7 +59,32 @@ export async function GET(req: NextRequest) {
       picture_url: usersMap[row.teacher_id]?.picture_url ?? null,
     }));
 
-    return NextResponse.json({ coTeachers });
+    const { data: pendingRows } = await supabase
+      .from("co_teacher_invites")
+      .select("id, token, invitee_id, created_at")
+      .eq("owner_id", owner.id)
+      .eq("status", "pending");
+
+    const pendingIds = (pendingRows || []).map((r) => r.invitee_id);
+    let pendingUsersMap: Record<string, { display_name: string | null; picture_url: string | null }> = {};
+    if (pendingIds.length > 0) {
+      const { data: pendingUsers } = await supabase
+        .from("users")
+        .select("id, display_name, picture_url")
+        .in("id", pendingIds);
+      pendingUsersMap = Object.fromEntries((pendingUsers || []).map((u) => [u.id, u]));
+    }
+
+    const pendingInvites = (pendingRows || []).map((row) => ({
+      id: row.id,
+      token: row.token,
+      invitee_id: row.invitee_id,
+      display_name: pendingUsersMap[row.invitee_id]?.display_name ?? null,
+      picture_url: pendingUsersMap[row.invitee_id]?.picture_url ?? null,
+      created_at: row.created_at,
+    }));
+
+    return NextResponse.json({ coTeachers, pendingInvites });
   } catch (error: any) {
     console.error("Co-teachers GET error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });

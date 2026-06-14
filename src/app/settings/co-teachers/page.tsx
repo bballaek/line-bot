@@ -5,7 +5,7 @@ import { useLiff } from "@/lib/liff-provider";
 import { useAppUser } from "@/hooks/useAppUser";
 import SettingsLayout, { SettingsCard } from "@/components/settings/SettingsLayout";
 import BecomeTeacherCard from "@/components/settings/BecomeTeacherCard";
-import { Plus, Trash2, User } from "lucide-react";
+import { Plus, Trash2, User, Clock, Send, Copy, Check } from "lucide-react";
 
 type CoTeacher = {
   id: string;
@@ -14,15 +14,27 @@ type CoTeacher = {
   picture_url: string | null;
 };
 
+type PendingInvite = {
+  id: string;
+  token: string;
+  invitee_id: string;
+  display_name: string | null;
+  picture_url: string | null;
+  created_at: string;
+};
+
 export default function CoTeachersSettingsPage() {
   const { isReady, liffError, userId } = useLiff();
   const { user, loading: userLoading, canManageIntegrations } = useAppUser();
   const [coTeachers, setCoTeachers] = useState<CoTeacher[]>([]);
+  const [pendingInvites, setPendingInvites] = useState<PendingInvite[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<{ id: string; display_name: string | null; picture_url: string | null }[]>([]);
   const [searching, setSearching] = useState(false);
+  const [inviting, setInviting] = useState<string | null>(null);
+  const [copiedToken, setCopiedToken] = useState<string | null>(null);
 
   useEffect(() => {
     if (!userLoading && !canManageIntegrations) return;
@@ -36,6 +48,7 @@ export default function CoTeachersSettingsPage() {
       const res = await fetch(`/api/co-teachers?line_user_id=${encodeURIComponent(userId)}`);
       const data = await res.json();
       setCoTeachers(data.coTeachers || []);
+      setPendingInvites(data.pendingInvites || []);
     } catch (e) {
       console.error(e);
     } finally {
@@ -59,24 +72,66 @@ export default function CoTeachersSettingsPage() {
     }
   };
 
-  const handleAdd = async (teacherId: string) => {
+  const handleInvite = async (teacherId: string) => {
     if (!userId) return;
+    setInviting(teacherId);
     try {
-      const res = await fetch("/api/co-teachers", {
+      const res = await fetch("/api/co-teachers/invite", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ line_user_id: userId, teacher_id: teacherId }),
       });
+      const data = await res.json();
       if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || "เพิ่มไม่สำเร็จ");
+        throw new Error(data.error || "ส่งคำเชิญไม่สำเร็จ");
       }
+
+      if (data.line_sent) {
+        alert(`ส่งคำเชิญไปยัง ${data.invitee_name || "ครู"} ทาง LINE แล้ว รอการตอบรับ`);
+      } else {
+        const msg = `ส่งข้อความ LINE ไม่ได้ (อาจยังไม่ได้เพิ่มบอทเป็นเพื่อน)\n\nคัดลอกลิงก์นี้ส่งให้ครู:\n${data.invite_url}`;
+        if (navigator.clipboard?.writeText) {
+          await navigator.clipboard.writeText(data.invite_url);
+          alert(msg + "\n\n(คัดลอกลิงก์แล้ว)");
+        } else {
+          alert(msg);
+        }
+      }
+
       setShowAdd(false);
       setSearchQuery("");
       setSearchResults([]);
       loadCoTeachers();
     } catch (err: any) {
       alert(err.message);
+    } finally {
+      setInviting(null);
+    }
+  };
+
+  const handleCancelInvite = async (token: string) => {
+    if (!userId || !confirm("ยกเลิกคำเชิญนี้ใช่หรือไม่?")) return;
+    try {
+      await fetch("/api/co-teachers/invite", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "cancel", line_user_id: userId, token }),
+      });
+      loadCoTeachers();
+    } catch {
+      alert("ยกเลิกไม่สำเร็จ");
+    }
+  };
+
+  const handleCopyLink = async (token: string) => {
+    const liffId = process.env.NEXT_PUBLIC_LIFF_ID;
+    const url = `https://liff.line.me/${liffId}/settings/co-teachers/invite?token=${encodeURIComponent(token)}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopiedToken(token);
+      setTimeout(() => setCopiedToken(null), 2000);
+    } catch {
+      alert(url);
     }
   };
 
@@ -109,9 +164,61 @@ export default function CoTeachersSettingsPage() {
   return (
     <SettingsLayout title="ครูผู้สอนร่วม" breadcrumb="ครูผู้สอนร่วม">
       <p style={{ fontSize: 14, color: "#795548", marginBottom: 16, lineHeight: 1.6 }}>
-        เพิ่มครูที่สามารถสร้างการบ้านและประกาศได้ร่วมกับคุณ
+        เชิญครูผ่าน LINE — อีกฝ่ายกดตกลงจึงจะได้สิทธิ์สร้างการบ้านและประกาศร่วมกัน
       </p>
 
+      {pendingInvites.length > 0 && (
+        <>
+          <div style={{ fontSize: 13, fontWeight: 600, color: "#A1887F", marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>
+            <Clock size={14} /> รอตอบรับ ({pendingInvites.length})
+          </div>
+          <SettingsCard>
+            {pendingInvites.map((inv, i) => (
+              <div
+                key={inv.id}
+                style={{
+                  display: "flex", alignItems: "center", gap: 12, padding: "14px 18px",
+                  borderBottom: i < pendingInvites.length - 1 ? "1px solid #F5E6D3" : "none",
+                }}
+              >
+                {inv.picture_url ? (
+                  <img src={inv.picture_url} alt="" style={{ width: 40, height: 40, borderRadius: "50%", objectFit: "cover" }} />
+                ) : (
+                  <div style={{
+                    width: 40, height: 40, borderRadius: "50%", background: "#FFF8E1",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                  }}>
+                    <User size={20} color="#F9A825" />
+                  </div>
+                )}
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 15, fontWeight: 500, color: "#3E2723" }}>
+                    {inv.display_name || "ไม่ระบุชื่อ"}
+                  </div>
+                  <div style={{ fontSize: 12, color: "#A1887F" }}>รอการตอบรับ</div>
+                </div>
+                <button
+                  onClick={() => handleCopyLink(inv.token)}
+                  style={{ background: "none", border: "none", cursor: "pointer", padding: 4 }}
+                  title="คัดลอกลิงก์เชิญ"
+                >
+                  {copiedToken === inv.token ? <Check size={16} color="#2E7D32" /> : <Copy size={16} color="#A1887F" />}
+                </button>
+                <button
+                  onClick={() => handleCancelInvite(inv.token)}
+                  style={{ background: "none", border: "none", cursor: "pointer", padding: 4 }}
+                >
+                  <Trash2 size={16} color="#E53935" />
+                </button>
+              </div>
+            ))}
+          </SettingsCard>
+        </>
+      )}
+
+      <div style={{ fontSize: 13, fontWeight: 600, color: "#A1887F", margin: "16px 0 8px" }}>
+        ครูผู้สอนร่วม ({coTeachers.length})
+      </div>
       <SettingsCard>
         {loading ? (
           <div style={{ padding: 32, textAlign: "center", color: "#A1887F" }}>กำลังโหลด...</div>
@@ -162,7 +269,7 @@ export default function CoTeachersSettingsPage() {
           cursor: "pointer",
         }}
       >
-        <Plus size={18} /> เพิ่มครูผู้สอนร่วม
+        <Plus size={18} /> เชิญครูผู้สอนร่วม
       </button>
 
       {showAdd && (
@@ -177,7 +284,10 @@ export default function CoTeachersSettingsPage() {
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 style={{ fontSize: 17, fontWeight: 700, color: "#3E2723", marginBottom: 16 }}>เพิ่มครูผู้สอนร่วม</h3>
+            <h3 style={{ fontSize: 17, fontWeight: 700, color: "#3E2723", marginBottom: 8 }}>เชิญครูผู้สอนร่วม</h3>
+            <p style={{ fontSize: 13, color: "#795548", marginBottom: 16 }}>
+              ค้นหาชื่อแล้วส่งคำเชิญทาง LINE — ครูจะได้รับข้อความให้กดตกลง
+            </p>
             <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
               <input
                 type="text"
@@ -205,11 +315,13 @@ export default function CoTeachersSettingsPage() {
               {searchResults.map((u) => (
                 <button
                   key={u.id}
-                  onClick={() => handleAdd(u.id)}
+                  onClick={() => handleInvite(u.id)}
+                  disabled={inviting === u.id}
                   style={{
                     display: "flex", alignItems: "center", gap: 12, width: "100%",
                     padding: "12px 8px", background: "none", border: "none",
-                    borderBottom: "1px solid #F5E6D3", cursor: "pointer", textAlign: "left",
+                    borderBottom: "1px solid #F5E6D3", cursor: inviting === u.id ? "wait" : "pointer", textAlign: "left",
+                    opacity: inviting === u.id ? 0.6 : 1,
                   }}
                 >
                   {u.picture_url ? (
@@ -219,7 +331,8 @@ export default function CoTeachersSettingsPage() {
                       <User size={18} color="#F9A825" />
                     </div>
                   )}
-                  <span style={{ fontSize: 14, color: "#3E2723" }}>{u.display_name || "ไม่ระบุชื่อ"}</span>
+                  <span style={{ flex: 1, fontSize: 14, color: "#3E2723" }}>{u.display_name || "ไม่ระบุชื่อ"}</span>
+                  <Send size={16} color="#06C755" />
                 </button>
               ))}
               {searchResults.length === 0 && searchQuery && !searching && (

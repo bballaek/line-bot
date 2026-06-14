@@ -99,7 +99,7 @@ export default function GoogleDriveSettingsPage() {
       <SettingsCard>
         <div style={{ padding: "32px 24px", textAlign: "center" }}>
           <div style={{
-            width: 64, height: 64, borderRadius: "50%", background: "#E3F2FD",
+            width: 64, height: 64, borderRadius: "50%", background: "#FFF8E1",
             display: "flex", alignItems: "center", justifyContent: "center",
             margin: "0 auto 16px",
           }}>

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { validateSignature } from '@line/bot-sdk';
 import { messagingApi } from '@line/bot-sdk';
+import { buildClassroomSetupFlex } from '@/lib/flex-messages/classroom-setup';
 import { createClient } from '@supabase/supabase-js';
 
 const { MessagingApiClient } = messagingApi;
@@ -88,7 +89,13 @@ export async function POST(req: NextRequest) {
           await saveGroup(groupId);
           await client.replyMessage({
             replyToken: event.replyToken,
-            messages: [{ type: 'text', text: 'สวัสดีครับ! 🏫 บอท Song-Yang พร้อมให้บริการแล้ว\n\nพิมพ์ #การบ้าน หรือ #ประกาศ เพื่อเริ่มใช้งานได้เลย' }],
+            messages: [
+              buildClassroomSetupFlex(liffUrl, groupId) as messagingApi.FlexMessage,
+              {
+                type: 'text',
+                text: 'สวัสดีครับ! 🏫 Song-Yang พร้อมให้บริการ\n\nครู: กดปุ่ม「เปิดใช้งานสำหรับห้องเรียนนี้」ด้านบนเพื่อลงทะเบียนห้อง\n\nพิมพ์ #การบ้าน หรือ #ประกาศ เพื่อเริ่มใช้งาน',
+              },
+            ],
           });
         }
       }

@@ -10,16 +10,16 @@ const steps = [
     color: "#FFF3E0",
   },
   {
-    icon: <Send size={22} color="#2563EB" />,
+    icon: <Send size={22} color="#FFC107" />,
     title: "ส่งการบ้านเข้ากลุ่ม",
     desc: "หลังบันทึกจะขึ้น popup ให้เลือก \"ส่งเข้าแชทตัวเอง\" หรือ \"ส่งเข้าแชทกลุ่ม\" บอทจะส่ง Flex Message สวยๆ ให้",
-    color: "#E3F2FD",
+    color: "#FFF8E1",
   },
   {
-    icon: <Megaphone size={22} color="#1565c0" />,
+    icon: <Megaphone size={22} color="#F9A825" />,
     title: "สร้างประกาศ",
     desc: "กดเมนู \"ประกาศ\" → กด \"สร้างประกาศ\" → กรอกหัวข้อ, รายละเอียด, วันที่ → เลือกประเภท (แจ้งเพื่อทราบ / แจ้งเพื่อดำเนินการ)",
-    color: "#E3F2FD",
+    color: "#FFF8E1",
   },
   {
     icon: <CheckCircle2 size={22} color="#16A34A" />,
@@ -28,10 +28,10 @@ const steps = [
     color: "#F0FDF4",
   },
   {
-    icon: <Users size={22} color="#7C3AED" />,
+    icon: <Users size={22} color="#8D6E63" />,
     title: "เพิ่มบอทเข้ากลุ่ม",
     desc: "เพิ่มบอท Song Yang เข้ากลุ่ม LINE ห้องเรียน บอทจะจำกลุ่มไว้ แล้วสามารถส่งการบ้าน/ประกาศเข้ากลุ่มได้",
-    color: "#F5F3FF",
+    color: "#EFEBE9",
   },
   {
     icon: <MessageSquare size={22} color="#5e4034" />,
@@ -46,33 +46,30 @@ const steps = [
     color: "#FFFBEB",
   },
   {
-    icon: <Settings size={22} color="#475569" />,
+    icon: <Settings size={22} color="#5D4037" />,
     title: "ส่งการบ้านภายหลัง",
     desc: "ในหน้า \"การบ้านทั้งหมด\" กดไอคอน ส่ง ที่การบ้านแต่ละชิ้น เลือกส่งเข้าแชทตัวเองหรือกลุ่มได้ทุกเมื่อ",
-    color: "#F1F5F9",
+    color: "#FFF9F0",
   },
 ];
 
 export default function HelpPage() {
   return (
-    <div style={{ minHeight: "100vh", background: "#F0F4FA" }}>
+    <div style={{ minHeight: "100vh", background: "#FFF9F0" }}>
       {/* Header */}
-      <div style={{ background: "#495ca4", padding: "18px 20px 16px", borderRadius: "0 0 20px 20px" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <button onClick={() => window.history.back()} style={{ background: "none", border: "none", cursor: "pointer", color: "#fff", display: "flex", alignItems: "center" }}>
-            <ArrowLeft size={22} />
-          </button>
-          <HelpCircle size={22} color="#fff" />
-          <span style={{ color: "#fff", fontWeight: 700, fontSize: 18 }}>วิธีการใช้งาน</span>
-        </div>
+      <div style={{ padding: "14px 16px 8px" }}>
+        <button onClick={() => window.history.back()} style={{ background: "none", border: "none", cursor: "pointer", padding: "4px 0", color: "#8B6914", display: "flex", alignItems: "center", gap: 6, fontSize: 14, fontWeight: 500 }}>
+          <ArrowLeft size={18} />
+          <span style={{ color: "#5D4037" }}>วิธีการใช้งาน</span>
+        </button>
       </div>
 
       <div style={{ padding: "20px 16px" }}>
         {/* Intro */}
-        <div style={{ background: "#fff", borderRadius: 16, border: "1px solid #E2E8F0", padding: "20px 18px", marginBottom: 20, textAlign: "center" }}>
+        <div style={{ background: "#fff", borderRadius: 16, border: "1px solid #F5E6D3", padding: "20px 18px", marginBottom: 20, textAlign: "center" }}>
           <div style={{ fontSize: 40, marginBottom: 8 }}>🏫</div>
-          <h2 style={{ fontSize: 18, fontWeight: 700, color: "#1E293B", margin: "0 0 6px" }}>Song-Yang บันทึกการบ้าน</h2>
-          <p style={{ fontSize: 13, color: "#64748B", margin: 0, lineHeight: 1.6 }}>
+          <h2 style={{ fontSize: 18, fontWeight: 700, color: "#3E2723", margin: "0 0 6px" }}>Song-Yang บันทึกการบ้าน</h2>
+          <p style={{ fontSize: 13, color: "#795548", margin: 0, lineHeight: 1.6 }}>
             ระบบช่วยครูจัดการการบ้านและประกาศ<br/>ส่งแจ้งเตือนเข้ากลุ่ม LINE ได้ง่ายๆ
           </p>
         </div>
@@ -80,17 +77,17 @@ export default function HelpPage() {
         {/* Steps */}
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           {steps.map((step, i) => (
-            <div key={i} style={{ background: "#fff", borderRadius: 14, border: "1px solid #E2E8F0", overflow: "hidden" }}>
+            <div key={i} style={{ background: "#fff", borderRadius: 14, border: "1px solid #F5E6D3", overflow: "hidden" }}>
               <div style={{ display: "flex", gap: 14, padding: "16px 16px" }}>
                 <div style={{ width: 44, height: 44, borderRadius: 12, background: step.color, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                   {step.icon}
                 </div>
                 <div style={{ flex: 1 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
-                    <span style={{ fontSize: 11, fontWeight: 700, color: "#94A3B8", background: "#F1F5F9", borderRadius: 4, padding: "1px 6px" }}>ขั้นตอนที่ {i + 1}</span>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: "#A1887F", background: "#FFF9F0", borderRadius: 4, padding: "1px 6px" }}>ขั้นตอนที่ {i + 1}</span>
                   </div>
-                  <div style={{ fontSize: 15, fontWeight: 700, color: "#1E293B", marginBottom: 4 }}>{step.title}</div>
-                  <p style={{ fontSize: 13, color: "#64748B", margin: 0, lineHeight: 1.6, whiteSpace: "pre-line" }}>{step.desc}</p>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: "#3E2723", marginBottom: 4 }}>{step.title}</div>
+                  <p style={{ fontSize: 13, color: "#795548", margin: 0, lineHeight: 1.6, whiteSpace: "pre-line" }}>{step.desc}</p>
                 </div>
               </div>
             </div>
@@ -98,7 +95,7 @@ export default function HelpPage() {
         </div>
 
         {/* Footer note */}
-        <div style={{ textAlign: "center", padding: "24px 16px 40px", color: "#94A3B8", fontSize: 12 }}>
+        <div style={{ textAlign: "center", padding: "24px 16px 40px", color: "#A1887F", fontSize: 12 }}>
           หากมีปัญหาการใช้งาน ติดต่อผู้ดูแลระบบ 💬
         </div>
       </div>
